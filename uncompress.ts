@@ -1,12 +1,15 @@
 import generate from '@babel/generator'
-import { parse } from '@babel/parser'
+import { parse, parseExpression } from '@babel/parser'
 import type { NodePath, Visitor } from '@babel/traverse'
 import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import prettier from 'prettier'
-import * as prettierBabelPlugin from 'prettier/plugins/babel'
 
 import prettierConfig from './.prettierrc.json'
+
+// To support nest structure transformed by `regenerator`
+prettierConfig.printWidth = 999
+prettierConfig.tabWidth = 2
 
 function identifierIsVaild(value: string) {
     const keywords = (
@@ -18,7 +21,51 @@ function identifierIsVaild(value: string) {
     return !keywords.includes(value) && namedRegex.test(value)
 }
 
-type Component = Visitor
+function matchStaticExpression(
+    code_or_ast: string | t.Node,
+    current_ast: t.Node
+): boolean {
+    let ast: t.Node =
+        typeof code_or_ast === 'string'
+            ? parseExpression(code_or_ast)
+            : code_or_ast
+
+    if (t.isIdentifier(ast, { name: 'PLACEHOLDER' })) {
+        return true
+    }
+
+    if (ast.type !== current_ast.type) return false
+    const keys = t.BUILDER_KEYS[ast.type]
+    for (const key of keys) {
+        // @ts-ignore
+        const a = ast[key]
+        // @ts-ignore
+        const b = current_ast[key]
+
+        if (typeof a !== 'object' && typeof b !== 'object') {
+            if (a !== b) return false
+        } else if (Array.isArray(a) && Array.isArray(b)) {
+            if (a.length !== b.length) return false
+            if (
+                !a
+                    .reduce<
+                        [any, any][]
+                    >((prev, curr, index) => [...prev, [curr, b[index]]], [])
+                    .every(([a, b]) => matchStaticExpression(a, b))
+            )
+                return false
+        } else {
+            if (!matchStaticExpression(a, b)) return false
+        }
+    }
+    return true
+}
+
+function cloneNode(node: t.Node) {
+    return JSON.parse(JSON.stringify(node))
+}
+
+export type Component = Visitor
 
 const rawToReadable: Component = {
     StringLiteral(path) {
@@ -64,6 +111,7 @@ const literalKeyToIdentifier: Component = {
         }
     },
     ObjectProperty(path) {
+        // {['a']: 1} -> {a:1}
         const n = path.node
         if (
             t.isStringLiteral(n.key) &&
@@ -72,6 +120,25 @@ const literalKeyToIdentifier: Component = {
         ) {
             n.key = t.identifier(n.key.value)
             n.computed = false
+        }
+
+        // {a: function(){}} -> {a() {}}
+        if (
+            t.isFunctionExpression(n.value) &&
+            !n.value.id &&
+            !t.isPrivateName(n.key)
+        ) {
+            path.replaceWith(
+                t.objectMethod(
+                    'method',
+                    n.key,
+                    n.value.params,
+                    n.value.body,
+                    n.computed,
+                    n.value.generator,
+                    n.value.async
+                )
+            )
         }
     },
 }
@@ -168,12 +235,12 @@ const expandVariableDeclarations: Component = {
             return
         }
         if (
-            n.kind === 'var' &&
+            ['var', 'const', 'let'].includes(n.kind) &&
             n.declarations.length > 1 &&
             n.declarations.filter(dec => !!dec.init).length > 0
         ) {
             const declarations = n.declarations.map(dec =>
-                t.variableDeclaration('var', [dec])
+                t.variableDeclaration(n.kind, [dec])
             )
             path.replaceWithMultiple(declarations)
         }
@@ -346,7 +413,10 @@ const swapEquels: Component = {
         // true === expr -> expr === true
         const leftIsLiteral =
             t.isIdentifier(n.left, { name: 'undefined' }) ||
-            t.isLiteral(n.left)
+            t.isLiteral(n.left) ||
+            (t.isUnaryExpression(n.left) &&
+                ['+', '-', '!', '~', 'void'].includes(n.left.operator) &&
+                t.isLiteral(n.left.argument))
         const rightIsExpression =
             t.isIdentifier(n.right) || t.isExpression(n.right)
 
@@ -394,41 +464,48 @@ const forInitVar: Component = {
                     path.insertBefore(t.expressionStatement(n.init))
                     delete n.init
                 }
-            } else {
-                if (
-                    t.isBinaryExpression(n.test) &&
-                    t.isUpdateExpression(n.update) &&
-                    t.isIdentifier(n.update.argument)
-                ) {
-                    const variable = n.update.argument.name
+            } else if (
+                t.isBinaryExpression(n.test) &&
+                t.isUpdateExpression(n.update) &&
+                t.isIdentifier(n.update.argument)
+            ) {
+                const variable = n.update.argument.name
 
-                    if (n.init.declarations.length !== 1) {
-                        const reserve: t.VariableDeclarator[] = []
-                        const declarations: t.VariableDeclarator[] = []
-                        for (const decl of n.init.declarations) {
-                            if (
-                                !t.isIdentifier(decl.id, { name: variable }) ||
-                                decl.id.name !== variable
-                            ) {
-                                declarations.push(decl)
-                            } else {
-                                reserve.push(decl)
-                            }
-                        }
-
-                        if (reserve.length === 0) {
-                            delete n.init
+                if (n.init.declarations.length !== 1) {
+                    const reserve: t.VariableDeclarator[] = []
+                    const declarations: t.VariableDeclarator[] = []
+                    for (const decl of n.init.declarations) {
+                        if (
+                            !t.isIdentifier(decl.id, { name: variable }) ||
+                            decl.id.name !== variable
+                        ) {
+                            declarations.push(decl)
                         } else {
-                            n.init.declarations = reserve
+                            reserve.push(decl)
                         }
-                        declarations.forEach(decl => {
-                            path.insertBefore(
-                                t.variableDeclaration('var', [decl])
-                            )
-                        })
                     }
+
+                    if (reserve.length === 0) {
+                        delete n.init
+                    } else {
+                        n.init.declarations = reserve
+                    }
+                    declarations.forEach(decl => {
+                        path.insertBefore(t.variableDeclaration('var', [decl]))
+                    })
                 }
             }
+        }
+    },
+    ForInStatement(path) {
+        const n = path.node
+        if (
+            t.isSequenceExpression(n.right) &&
+            n.right.expressions.length >= 1
+        ) {
+            const lastone = n.right.expressions.pop()!
+            path.insertBefore(t.expressionStatement(n.right))
+            n.right = lastone
         }
     },
 }
@@ -740,7 +817,6 @@ export async function formatSource(
         console.error(
             'Some problems occurred while formatting the code, which may be the error of the uncompressor.'
         )
-        console.log()
         return (
             '// There are some errors in these code so we do not format them.\n' +
             generate(ast, {
@@ -754,35 +830,41 @@ export async function formatSource(
 // for test
 if (module === require.main) {
     import('fs').then(async fs => {
+        try {
+            fs.unlinkSync('./test/test-uncompress.out.js')
+        } catch {}
         let source = fs.readFileSync('./test/test-uncompress.js', 'utf-8')
 
         let result = await formatSource(source, {
             usePrettier: true,
             pref: true,
-            throwErrors: true,
+            // throwErrors: true,
         })
 
-        const timing = ['parse', 'transform', 'generate'].map<
-            [string, number]
-        >(label => {
-            performance.measure(label, label + '-start', label + '-end')
-            return [label, performance.getEntriesByName(label)[0].duration]
-        })
-        const total = timing.reduce((p, a) => p + a[1], 0)
-
-        console.table(
-            Object.fromEntries(
-                timing.map(e => [
-                    e[0],
-                    {
-                        Time: e[1].toFixed(2) + 'ms',
-                        Ratio: ((e[1] / total) * 100).toFixed(2) + '%',
-                    },
-                ])
-            ),
-            ['Time', 'Ratio']
-        )
-        console.log('Total:', total)
         fs.writeFileSync('./test/test-uncompress.out.js', result, 'utf-8')
+
+        try {
+            const timing = ['parse', 'transform', 'generate'].map<
+                [string, number]
+            >(label => {
+                performance.measure(label, label + '-start', label + '-end')
+                return [label, performance.getEntriesByName(label)[0].duration]
+            })
+            const total = timing.reduce((p, a) => p + a[1], 0)
+
+            console.table(
+                Object.fromEntries(
+                    timing.map(e => [
+                        e[0],
+                        {
+                            Time: e[1].toFixed(2) + 'ms',
+                            Ratio: ((e[1] / total) * 100).toFixed(2) + '%',
+                        },
+                    ])
+                ),
+                ['Time', 'Ratio']
+            )
+            console.log('Total: ' + total.toFixed(2) + 'ms')
+        } catch {}
     })
 }

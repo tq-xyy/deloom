@@ -40,7 +40,7 @@ export interface ModuleInfo {
 export interface Tip {
     type:
         | 'require_ref'
-        | 'require_args'
+        | 'require_as_arg'
         | 'wrong_member'
         | 'runtime_helper'
         | 'wrong_module_fn'
@@ -131,7 +131,7 @@ export class Extractor {
                         root as NodePath<t.FunctionExpression>
                     )
 
-                    graph[key] = {
+                    graph[key as ModuleID] = {
                         ...moduleInfo,
                         filename,
                         name: this.rewrite(key as ModuleID),
@@ -202,8 +202,25 @@ export class Extractor {
                                 './' + this.rewrite(depID as ModuleID)
                             ),
                         ]
+
+                        // replace random single import name with import${moduleId}
+                        if (
+                            path.parentPath?.parentPath?.isVariableDeclarator() &&
+                            t.isIdentifier(
+                                path.parentPath.parentPath.node.id
+                            ) &&
+                            path.parentPath.parentPath.node.id.name.length <=
+                                2
+                        ) {
+                            path.parentPath.parentPath
+                                .get('id')
+                                .scope.rename(
+                                    path.parentPath.parentPath.node.id.name,
+                                    `import_${depID}`
+                                )
+                        }
                     } else {
-                        handleErrors('require_args')
+                        handleErrors('require_as_arg')
                     }
                     break
                 case 'MemberExpression':
@@ -291,7 +308,32 @@ export class Extractor {
                         path.parentPath.replaceWithSourceString(
                             'Object.prototype.hasOwnProperty.call'
                         )
+                    } else if (
+                        helperName === 'n' &&
+                        path.parentPath.parentPath?.isCallExpression() &&
+                        path.parentPath.parentPath.node.arguments.length ===
+                            1 &&
+                        t.isIdentifier(
+                            path.parentPath.parentPath.node.arguments[0]
+                        ) &&
+                        path.parentPath.parentKey === 'callee' &&
+                        path.parentPath.parentPath.parentPath.isVariableDeclarator() &&
+                        t.isIdentifier(
+                            path.parentPath.parentPath.parentPath.node.id
+                        )
+                    ) {
+                        // restore requireN's varname
+                        path.parentPath.parentPath.parentPath
+                            .get('id')
+                            .scope.rename(
+                                path.parentPath.parentPath.parentPath.node.id
+                                    .name,
+                                `${path.parentPath.parentPath.node.arguments[0].name}$n`
+                            )
+                        const call = addPatch(helperName)
+                        path.parentPath.replaceWithSourceString(call)
                     } else if (isHelper(helperName)) {
+                        // `d`, `r`, `hmd`, `nmd` and `n` (be used elsewhere)
                         const call = addPatch(helperName)
                         path.parentPath.replaceWithSourceString(call)
                     } else {
@@ -368,8 +410,8 @@ export class Extractor {
                 refmap[dep].add(id as ModuleID)
             }
         }
-        for (const [id, info] of Object.entries(modules)) {
-            info.referredBy = refmap[id] ? refmap[id] : new Set()
+        for (const id of Object.keys(modules) as ModuleID[]) {
+            modules[id].referredBy = refmap[id] || new Set()
         }
     }
 
@@ -398,10 +440,9 @@ export class Extractor {
  * caused by the use of the tool, and the copyright belongs to 
  * the author of the original source code. Do not distribute.
  * 
- * Dependencies of this file:
- * ${deps.length ? deps.join(', ') : 'None'}
- * Referred by:
- * ${
+ * Depends: ${deps.length ? deps.join(', ') : 'None'}
+ * 
+ * Referred by: ${
      referredBy === null
          ? 'Data missing'
          : referredBy.length

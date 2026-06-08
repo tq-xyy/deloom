@@ -5,8 +5,24 @@ import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import prettier from 'prettier'
 
-import prettierConfig from '../.prettierrc.json'
-
+const prettierConfig: prettier.Config = {
+    arrowParens: 'avoid',
+    bracketSpacing: true,
+    endOfLine: 'crlf',
+    htmlWhitespaceSensitivity: 'css',
+    insertPragma: false,
+    jsxSingleQuote: false,
+    printWidth: 79,
+    proseWrap: 'preserve',
+    quoteProps: 'as-needed',
+    requirePragma: false,
+    semi: false,
+    singleQuote: true,
+    tabWidth: 4,
+    trailingComma: 'es5',
+    useTabs: false,
+    vueIndentScriptAndStyle: false,
+}
 // To support nest structure transformed by `regenerator`
 prettierConfig.printWidth = 999
 prettierConfig.tabWidth = 2

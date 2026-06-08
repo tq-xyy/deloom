@@ -1,9 +1,8 @@
-#!/usr/bin/env -S npx tsx
 import { Command } from 'commander'
 import { readFile, writeFile, unlink, readdir, rm } from 'fs/promises'
 import * as path from 'path'
-import { formatSource } from '../src/uncompress'
-import { unbundle } from '../src/unbundler'
+import { formatSource } from './uncompress'
+import { unbundle } from './unbundler'
 
 import packageJson from '../package.json'
 
@@ -55,7 +54,7 @@ program
                 await writeFile(output, result, 'utf-8')
                 console.log(`Formatted source written to ${output}`)
 
-                // 打印耗时表格（逻辑不变）
+                // 打印耗时表格
                 if (options.timing !== false) {
                     performance.mark('parse-end')
                     performance.mark('transform-end')

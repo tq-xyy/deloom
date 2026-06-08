@@ -1,16 +1,35 @@
 {
     "name": "deloom",
+    "version": "0.1.0",
     "description": "A tool to uncompress and unbundle JavaScript bundles created by webpack, terser, and others.",
-    "version": "0.1",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "bin": {
+        "deloom": "dist/cli.js"
+    },
+    "files": [
+        "dist/",
+        "README.md",
+        "README_zh.md",
+        "LICENSE"
+    ],
     "license": "MIT",
     "author": {
         "name": "tq-xyy",
         "url": "https://github.com/tq-xyy"
     },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/tq-xyy/deloom.git"
+    },
+    "engines": {
+        "node": ">=16"
+    },
     "scripts": {
         "lint": "prettier -w *.ts *.json",
-        "test:uncompress": "esno ./bin/cli.ts uncompress ./test/test-uncompress.js ./test/test-uncompress.out.js --throw-errors",
-        "test:unbundle": "esno ./bin/cli.ts unbundle ./test/test-unbundle ./test/test-unbundle.out"
+        "build": "npm run clean && esbuild src/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json",
+        "clean": "rimraf dist",
+        "prepublishOnly": "npm run build && npm run lint"
     },
     "dependencies": {
         "@babel/generator": "^7.29.7",
@@ -23,9 +42,11 @@
     },
     "devDependencies": {
         "@types/babel__generator": "^7.27.0",
+        "@types/babel__template": "^7.4.4",
         "@types/babel__traverse": "^7.28.0",
         "@types/node": "^25.9.2",
         "esbuild": "^0.28.0",
-        "esno": "^4.8.0"
+        "esno": "^4.8.0",
+        "rimraf": "^6.1.3"
     }
 }

@@ -178,7 +178,7 @@ export class Extractor {
                 this.tips.push({
                     module: id,
                     type,
-                    src: generate(path.parent).code,
+                    src: generate(path.parentPath.parent).code,
                 })
                 // Don't add a comment because the node may be something that can't add a comment.
                 // path.parentPath.addComment('leading', 'unresolved', false)
@@ -209,8 +209,7 @@ export class Extractor {
                             t.isIdentifier(
                                 path.parentPath.parentPath.node.id
                             ) &&
-                            path.parentPath.parentPath.node.id.name.length <=
-                                2
+                            path.parentPath.parentPath.node.id.name.length <= 2
                         ) {
                             path.parentPath.parentPath
                                 .get('id')
@@ -220,7 +219,16 @@ export class Extractor {
                                 )
                         }
                     } else {
-                        handleErrors('require_as_arg')
+                        if (
+                            path.parent.callee.type === 'MemberExpression' &&
+                            t.isIdentifier(path.parent.callee.object, {
+                                name: 'require',
+                            })
+                        ) {
+                            // pass
+                        } else {
+                            handleErrors('require_as_arg')
+                        }
                     }
                     break
                 case 'MemberExpression':
@@ -332,6 +340,37 @@ export class Extractor {
                             )
                         const call = addPatch(helperName)
                         path.parentPath.replaceWithSourceString(call)
+                    } else if (
+                        helperName === 'bind' &&
+                        path.parentPath?.parentPath?.isCallExpression({
+                            callee: path.parent,
+                        }) &&
+                        path.parentPath.parentPath.node.arguments.length ===
+                            2 &&
+                        t.isIdentifier(
+                            path.parentPath.parentPath.node.arguments[0]
+                        )
+                    ) {
+                        const requireCall = path.parentPath.parentPath.node
+                        const depID = (
+                            requireCall.arguments[1] as
+                                | t.StringLiteral
+                                | t.NumericLiteral
+                        ).value
+                        deps.add(depID as ModuleID)
+
+                        // TODO: relative import
+
+                        path.parentPath.parentPath.replaceWith(
+                            t.arrowFunctionExpression(
+                                [],
+                                t.callExpression(t.identifier('require'), [
+                                    t.stringLiteral(
+                                        './' + this.rewrite(depID as ModuleID)
+                                    ),
+                                ])
+                            )
+                        )
                     } else if (isHelper(helperName)) {
                         // `d`, `r`, `hmd`, `nmd` and `n` (be used elsewhere)
                         const call = addPatch(helperName)
@@ -348,7 +387,9 @@ export class Extractor {
 
         const params = root.node.params.filter((param, index) => {
             if (!t.isIdentifier(param)) {
-                let paramPath: NodePath<t.FunctionParameter> = root.get('params.' + index)
+                let paramPath: NodePath<t.FunctionParameter> = root.get(
+                    'params.' + index
+                )
                 if (Array.isArray(paramPath)) {
                     paramPath = paramPath[0]
                 }

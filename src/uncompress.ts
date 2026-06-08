@@ -339,45 +339,11 @@ const complexToReference: Component = {
             t.isObjectExpression(n.object) &&
             n.object.properties.length > 10
         ) {
-            let id = path.scope.generateUidIdentifier('obj')
+            let id = path.scope.generateUidIdentifier('staticObj')
             path.scope.push({ id, init: n.object })
             n.object = id
         }
     },
-    // ArrowFunctionExpression(path) {
-    //     const n = path.node
-    //     if (
-    //         t.isCallExpression(path.parent) &&
-    //         path.parent.callee === n &&
-    //         !(
-    //             t.isProgram(path.scope.parent.block) ||
-    //             t.isFile(path.scope.parent.block)
-    //         ) &&
-    //         t.isBlockStatement(n.body) &&
-    //         n.body.body.length > 10
-    //     ) {
-    //         let id = path.scope.generateUidIdentifier('fn')
-    //         path.scope.parent.push({ id, init: n })
-    //         path.replaceWith(id)
-    //     }
-    // },
-    // FunctionExpression(path) {
-    //     const n = path.node
-    //     if (
-    //         !t.isCallExpression(path.parent) &&
-    //         !t.isExpressionStatement(path.parent) &&
-    //         !(
-    //             t.isProgram(path.scope.parent.block) ||
-    //             t.isFile(path.scope.parent.block)
-    //         ) &&
-    //         t.isBlockStatement(n.body) &&
-    //         n.body.body.length > 10
-    //     ) {
-    //         let id = path.scope.generateUidIdentifier('fn')
-    //         path.scope.parent.push({ id, init: n })
-    //         path.replaceWith(id)
-    //     }
-    // },
 }
 
 const removeUnusedConstants: Component = {

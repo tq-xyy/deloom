@@ -1,10 +1,10 @@
 {
-    "name": "uncompress",
-    "description": "A tool to uncompress and unbundle bundle created by webpack, terser and etc.",
+    "name": "deloom",
+    "description": "A tool to uncompress and unbundle JavaScript bundles created by webpack, terser, and others.",
     "version": "0.1",
+    "license": "MIT",
     "author": {
         "name": "tq-xyy",
-        "email": "m17097231932@163.com",
         "url": "https://github.com/tq-xyy"
     },
     "scripts": {

@@ -714,11 +714,35 @@ const promiseExecuterArgumentRewrite: Component = {
                 subpath.scope.getBinding('resolve') ||
                 subpath.scope.getBinding('reject')
             ) {
-                return
+                let suffix = 1
+                while (
+                    subpath.scope.getBinding(`resolve${suffix}`) ||
+                    subpath.scope.getBinding(`reject${suffix}`)
+                ) {
+                    suffix++
+                }
+                subpath.scope.rename(resolveFn.name, `resolve${suffix}`)
+                subpath.scope.rename(rejectFn.name, `reject${suffix}`)
+            } else {
+                subpath.scope.rename(resolveFn.name, 'resolve')
+                subpath.scope.rename(rejectFn.name, 'reject')
             }
+        }
+    },
+}
 
-            subpath.scope.rename(resolveFn.name, 'resolve')
-            subpath.scope.rename(rejectFn.name, 'reject')
+const tryCatchArgumentRewrite: Component = {
+    CatchClause(path) {
+        const subpath = path.get('param')
+        if (!subpath.isIdentifier()) return
+        if (subpath.scope.getBinding('caughtError')) {
+            let suffix = 1
+            while (subpath.scope.getBinding(`caughtError${suffix}`)) {
+                suffix++
+            }
+            subpath.scope.rename(subpath.node.name, `caughtError${suffix}`)
+        } else {
+            subpath.scope.rename(subpath.node.name, 'caughtError')
         }
     },
 }
@@ -742,6 +766,7 @@ const pluginUncompress = combineVistors([
     conditionTransformIf,
     extractNestExpression,
     promiseExecuterArgumentRewrite,
+    tryCatchArgumentRewrite,
 ])
 
 interface UncompressOptions {
@@ -813,7 +838,7 @@ export async function formatSource(
             'Some problems occurred while formatting the code, which may be the error of the uncompressor.'
         )
         return (
-            '// There are some errors in these code so we do not format them.\n' +
+            `// There are some errors in these code so we do not format them.\n// ${err}` +
             generate(ast, {
                 minified: false,
                 sourceMaps: false,

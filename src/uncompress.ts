@@ -86,6 +86,39 @@ const rawToReadable: Component = {
         }
         n.extra.raw = n.value.toString()
     },
+    BinaryExpression: {
+        enter(path) {
+            function canConstantify(node: t.Node) {
+                if (node.type === 'NumericLiteral') {
+                    return true
+                }
+                if (
+                    node.type === 'UnaryExpression' &&
+                    node.operator === '-' &&
+                    canConstantify(node.argument)
+                ) {
+                    return true
+                }
+                if (
+                    node.type === 'BinaryExpression' &&
+                    ['+', '-', '*'].includes(node.operator) &&
+                    canConstantify(node.left) &&
+                    canConstantify(node.right)
+                ) {
+                    return true
+                }
+                return false
+            }
+
+            if (!canConstantify(path.node)) {
+                return
+            }
+            const value = new Function(
+                generate(t.returnStatement(path.node)).code
+            )()
+            path.replaceWith(t.numericLiteral(value))
+        },
+    },
 }
 
 const literalKeyToIdentifier: Component = {
@@ -188,43 +221,6 @@ const statementToBlock: Component = {
                 n.alternate = n.alternate.body[0]
             }
         },
-    },
-}
-
-const numberSplitByTime: Component = {
-    NumericLiteral(path) {
-        function splitTime(time: number) {
-            const UNITS = [1000, 60, 60, 24, 365]
-            let nums = [time]
-
-            if (time === 0) {
-                return nums
-            }
-            for (const unit of UNITS) {
-                const last = nums.pop()!
-
-                const value = last / unit
-                if (Math.floor(value) === value && value !== 1) {
-                    nums.push(unit, last / unit)
-                } else {
-                    nums.push(last)
-                    return nums
-                }
-            }
-            return nums
-        }
-
-        const times = splitTime(path.node.value).reverse()
-        if (times.length > 1) {
-            const nodes = times.reduce<t.Expression | null>((left, right) => {
-                if (left === null) {
-                    return t.numericLiteral(right)
-                }
-
-                return t.binaryExpression('*', left, t.numericLiteral(right))
-            }, null)!
-            path.replaceWith(nodes)
-        }
     },
 }
 
@@ -735,7 +731,6 @@ const pluginUncompress = combineVistors([
     rawToReadable,
     literalKeyToIdentifier,
     statementToBlock,
-    numberSplitByTime,
     expandVariableDeclarations,
     callbackToArrow,
     moreReadable,

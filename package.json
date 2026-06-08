@@ -9,7 +9,7 @@
     },
     "scripts": {
         "lint": "prettier -w *.ts *.json",
-        "test:uncompress": "esno ./bin/cli.ts uncompress ./test/test-uncompress.js ./test/test-uncompress.out.js",
+        "test:uncompress": "esno ./bin/cli.ts uncompress ./test/test-uncompress.js ./test/test-uncompress.out.js --throw-errors",
         "test:unbundle": "esno ./bin/cli.ts unbundle ./test/test-unbundle ./test/test-unbundle.out"
     },
     "dependencies": {

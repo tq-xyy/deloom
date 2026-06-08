@@ -348,7 +348,7 @@ export class Extractor {
 
         const params = root.node.params.filter((param, index) => {
             if (!t.isIdentifier(param)) {
-                let paramPath = root.get('params.' + index)
+                let paramPath: NodePath<t.FunctionParameter> = root.get('params.' + index)
                 if (Array.isArray(paramPath)) {
                     paramPath = paramPath[0]
                 }

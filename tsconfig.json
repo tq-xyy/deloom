@@ -10,9 +10,8 @@
         "strictBuiltinIteratorReturn": true,
         "strictPropertyInitialization": true,
         "noEmit": true,
+        "types": ["node"]
     },
-    "exclude": [
-        "node_modules",
-        "**/node_modules/*"
-    ]
+    "exclude": ["node_modules", "**/node_modules/*"],
+    "include": ["src"]
 }

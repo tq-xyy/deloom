@@ -5,7 +5,7 @@ import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import prettier from 'prettier'
 
-import prettierConfig from './.prettierrc.json'
+import prettierConfig from '../.prettierrc.json'
 
 // To support nest structure transformed by `regenerator`
 prettierConfig.printWidth = 999

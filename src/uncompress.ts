@@ -226,6 +226,7 @@ const statementToBlock: Component = {
 
 const expandVariableDeclarations: Component = {
     VariableDeclaration(path) {
+        // var a = 1, b = 2, c = 3 -> let a = 1; let b = 2; let c = 3
         const n = path.node
         if (t.isFor(path.parent)) {
             return
@@ -235,8 +236,9 @@ const expandVariableDeclarations: Component = {
             n.declarations.length > 1 &&
             n.declarations.filter(dec => !!dec.init).length > 0
         ) {
+            const kind = n.kind === 'var' ? 'let' : n.kind
             const declarations = n.declarations.map(dec =>
-                t.variableDeclaration(n.kind, [dec])
+                t.variableDeclaration(kind, [dec])
             )
             path.replaceWithMultiple(declarations)
         }

@@ -1,5 +1,5 @@
 import generate from '@babel/generator'
-import { parse, parseExpression } from '@babel/parser'
+import { parse } from '@babel/parser'
 import type { NodePath, Visitor } from '@babel/traverse'
 import traverse from '@babel/traverse'
 import * as t from '@babel/types'
@@ -35,50 +35,6 @@ function identifierIsVaild(value: string) {
     ).split(',')
     const namedRegex = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/
     return !keywords.includes(value) && namedRegex.test(value)
-}
-
-function matchStaticExpression(
-    code_or_ast: string | t.Node,
-    current_ast: t.Node
-): boolean {
-    let ast: t.Node =
-        typeof code_or_ast === 'string'
-            ? parseExpression(code_or_ast)
-            : code_or_ast
-
-    if (t.isIdentifier(ast, { name: 'PLACEHOLDER' })) {
-        return true
-    }
-
-    if (ast.type !== current_ast.type) return false
-    const keys = t.BUILDER_KEYS[ast.type]
-    for (const key of keys) {
-        // @ts-ignore
-        const a = ast[key]
-        // @ts-ignore
-        const b = current_ast[key]
-
-        if (typeof a !== 'object' && typeof b !== 'object') {
-            if (a !== b) return false
-        } else if (Array.isArray(a) && Array.isArray(b)) {
-            if (a.length !== b.length) return false
-            if (
-                !a
-                    .reduce<
-                        [any, any][]
-                    >((prev, curr, index) => [...prev, [curr, b[index]]], [])
-                    .every(([a, b]) => matchStaticExpression(a, b))
-            )
-                return false
-        } else {
-            if (!matchStaticExpression(a, b)) return false
-        }
-    }
-    return true
-}
-
-function cloneNode(node: t.Node) {
-    return JSON.parse(JSON.stringify(node))
 }
 
 export type Component = Visitor

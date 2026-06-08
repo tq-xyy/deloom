@@ -1,6 +1,8 @@
 # deloom
 
-**deloom** unwears the loom of webpack bundling. It is a tool for **uncompressing** and **unbundling** JavaScript files produced by bundlers and minifiers like **webpack**, **terser**, and others. Using Babel AST transformations, it recovers obfuscated or compressed code into a more readable form and disassembles webpack bundles into standalone CommonJS modules.
+English/[中文](./README_zh.md)
+
+**deloom** is a tool for **uncompressing** and **unbundling** JavaScript files produced by bundlers and minifiers like **webpack**, **terser**, and others. Using Babel AST transformations, it recovers obfuscated or compressed code into a more readable form and disassembles webpack bundles into standalone CommonJS modules.
 
 ## Features
 

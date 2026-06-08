@@ -515,19 +515,3 @@ export async function unbundle(options: Options) {
 
     log('Tips:\n' + extractor.formatTips())
 }
-
-if (module === require.main) {
-    ;(async () => {
-        await fs.rm('./test/test-unbundle.out', {
-            recursive: true,
-            force: true,
-        })
-        await unbundle({
-            entries: (await fs.readdir('./test/test-unbundle'))
-                .filter(p => p.endsWith('.js'))
-                .map(p => path.join('./test/test-unbundle', p)),
-            output: './test/test-unbundle.out',
-            log: true,
-        })
-    })()
-}

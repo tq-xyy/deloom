@@ -201,21 +201,30 @@ const statementToBlock: Component = {
 
 const expandVariableDeclarations: Component = {
     VariableDeclaration(path) {
-        // var a = 1, b = 2, c = 3 -> let a = 1; let b = 2; let c = 3
+        // var a = 1, b = 2, c = 3 -> let a = 1; let b = 2; const c = 3
+        // (convert to const if the variable is not reassigned)
         const n = path.node
         if (t.isFor(path.parent)) {
             return
         }
+
+        const kind = n.kind === 'var' ? 'let' : n.kind
+
         if (
             ['var', 'const', 'let'].includes(n.kind) &&
             n.declarations.length > 1 &&
             n.declarations.filter(dec => !!dec.init).length > 0
         ) {
-            const kind = n.kind === 'var' ? 'let' : n.kind
             const declarations = n.declarations.map(dec =>
                 t.variableDeclaration(kind, [dec])
             )
             path.replaceWithMultiple(declarations)
+        }
+
+        if (n.declarations.length === 1) {
+            if (kind !== n.kind) {
+                n.kind = kind
+            }
         }
     },
 }
@@ -529,16 +538,19 @@ const extractNestExpression: Component = {
             t.isNumericLiteral(n.expressions[0], { value: 0 })
         ) {
             path.replaceWith(n.expressions[1])
+            return
         }
 
-        // a(), b() -> a(); b()
+        // a, b -> a; b
         if (t.isExpressionStatement(path.parent)) {
             const exprs = n.expressions.map(expr =>
                 t.expressionStatement(expr)
             )
             path.parentPath.replaceWithMultiple(exprs)
+            return
         }
 
+        // return a, b -> a; return b
         if (
             t.isReturnStatement(path.parent) ||
             t.isThrowStatement(path.parent)
@@ -548,14 +560,20 @@ const extractNestExpression: Component = {
                 path.parentPath.insertBefore(t.expressionStatement(expr))
             }
             path.replaceWith(lastone)
+            return
         }
+
+        // if (a, b) {...} -> a; if (b) {...}
         if (t.isIfStatement(path.parent) && path.parentKey === 'test') {
             const lastone = n.expressions.pop()!
             for (const expr of n.expressions) {
                 path.parentPath.insertBefore(t.expressionStatement(expr))
             }
             path.replaceWith(lastone)
+            return
         }
+
+        // var a = (b, c) -> b; var a = c
         if (
             t.isVariableDeclarator(path.parent) &&
             path.parentKey === 'init' &&
@@ -568,6 +586,23 @@ const extractNestExpression: Component = {
                 )
             }
             path.replaceWith(lastone)
+            return
+        }
+
+        // fn((a, b)) -> a; fn(b)
+        if (
+            t.isCallExpression(path.parent) &&
+            path.parentKey === 'arguments'
+        ) {
+            const statementBlock = path.parentPath.parentPath
+
+            if (statementBlock?.isStatement()) {
+                const lastone = n.expressions.pop()!
+                for (const expr of n.expressions) {
+                    statementBlock.insertBefore(t.expressionStatement(expr))
+                }
+                path.replaceWith(lastone)
+            }
         }
     },
     AssignmentExpression(path) {
@@ -751,7 +786,8 @@ export async function formatSource(
         }
         console.error(
             'Some problems occurred during the uncompression process, ' +
-                'which may be source code errors. Please check the input.'
+                'which may be source code errors. Please check the input. ' +
+                'Or you can set --throw-errors to have a look of the error.'
         )
         return (
             '// An error occurred during uncompressing. Roll back.\n' + source

@@ -91,7 +91,17 @@ program
                     }
                 }
             } catch (err) {
-                console.error('Error during uncompress:', err)
+                if (err instanceof Error) {
+                    console.error(
+                        'Error during uncompress:',
+                        err.stack
+                            ?.split('\n')
+                            .filter(line => !line.includes('node_modules'))
+                            .join('\n')
+                    )
+                } else {
+                    console.error('Error during uncompress:', err)
+                }
                 process.exit(1)
             }
         }

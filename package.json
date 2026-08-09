@@ -1,9 +1,9 @@
 {
     "name": "deloom",
-    "version": "0.1.0",
+    "version": "1.0.1",
     "description": "A tool to uncompress and unbundle JavaScript bundles created by webpack, terser, and others.",
     "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "types": "types/index.d.ts",
     "bin": {
         "deloom": "dist/cli.js"
     },
@@ -26,27 +26,27 @@
         "node": ">=16"
     },
     "scripts": {
-        "lint": "prettier -w *.ts *.json",
+        "lint": "prettier -w **/*.ts **/*.json",
         "build": "npm run clean && esbuild src/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json",
         "clean": "rimraf dist",
         "prepublishOnly": "npm run build && npm run lint"
     },
     "dependencies": {
-        "@babel/generator": "^7.29.7",
-        "@babel/parser": "^7.29.7",
+        "@babel/generator": "^7.29.8",
+        "@babel/parser": "^7.29.8",
         "@babel/template": "^7.29.7",
-        "@babel/traverse": "^7.29.7",
-        "@babel/types": "^7.29.7",
+        "@babel/traverse": "^7.29.8",
+        "@babel/types": "^7.29.8",
         "commander": "^15.0.0",
-        "prettier": "^3.8.3"
+        "prettier": "^3.9.6"
     },
     "devDependencies": {
         "@types/babel__generator": "^7.27.0",
         "@types/babel__template": "^7.4.4",
         "@types/babel__traverse": "^7.28.0",
-        "@types/node": "^25.9.2",
-        "esbuild": "^0.28.0",
-        "esno": "^4.8.0",
+        "@types/node": "^26.2.0",
+        "esbuild": "^0.28.1",
+        "tsx": "^4.23.11",
         "rimraf": "^6.1.3"
     }
 }

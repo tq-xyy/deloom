@@ -47,6 +47,9 @@ const rawToReadable: Component = {
                 rawValue: n.value,
             }
         }
+        if ((n.extra.rawValue as string).includes('\\x')) {
+            return
+        }
         n.extra.raw = JSON.stringify(n.extra.rawValue)
     },
     NumericLiteral(path) {

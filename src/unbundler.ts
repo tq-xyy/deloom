@@ -232,13 +232,11 @@ export class Extractor {
                     }
                     break
                 case 'MemberExpression':
-                    if (
-                        !(
-                            !path.parent.computed &&
-                            path.parent.property.type === 'Identifier' &&
-                            path.parentKey === 'object'
-                        )
-                    ) {
+                    if (!(
+                        !path.parent.computed &&
+                        path.parent.property.type === 'Identifier' &&
+                        path.parentKey === 'object'
+                    )) {
                         handleErrors('wrong_member')
                         break
                     }
@@ -354,8 +352,7 @@ export class Extractor {
                         const requireCall = path.parentPath.parentPath.node
                         const depID = (
                             requireCall.arguments[1] as
-                                | t.StringLiteral
-                                | t.NumericLiteral
+                                t.StringLiteral | t.NumericLiteral
                         ).value
                         deps.add(depID as ModuleID)
 
@@ -389,7 +386,7 @@ export class Extractor {
             if (!t.isIdentifier(param)) {
                 let paramPath: NodePath<t.FunctionParameter> = root.get(
                     'params.' + index
-                )
+                ) as NodePath<t.FunctionParameter>
                 if (Array.isArray(paramPath)) {
                     paramPath = paramPath[0]
                 }

@@ -1,6 +1,6 @@
 import generate from '@babel/generator'
 import { parse } from '@babel/parser'
-import type { NodePath, Visitor } from '@babel/traverse'
+import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import prettier from 'prettier'
@@ -667,6 +667,34 @@ const extractNestExpression: Component = {
     },
 }
 
+// 将 oldName 重命名为 desiredName；名字被占用时追加数字后缀（name1、name2...）
+// 返回实际使用的名字（oldName 已是 desiredName 时原样返回）
+function renameToDesired(
+    scope: Scope,
+    oldName: string,
+    desiredName: string,
+    reservedNames: string[] = []
+): string {
+    if (oldName === desiredName) {
+        return desiredName
+    }
+    const binding = scope.getBinding(oldName)
+    if (!binding) {
+        return desiredName
+    }
+    const targetScope = binding.scope
+    const taken = (name: string) =>
+        name !== oldName &&
+        (!!targetScope.getBinding(name) || reservedNames.includes(name))
+    let name = desiredName
+    let suffix = 1
+    while (taken(name)) {
+        name = `${desiredName}${suffix++}`
+    }
+    targetScope.rename(oldName, name)
+    return name
+}
+
 const promiseExecuterArgumentRewrite: Component = {
     // new Promise((a, b) => {}) -> new Promise((resolve, reject) => {})
     NewExpression(path) {
@@ -688,23 +716,16 @@ const promiseExecuterArgumentRewrite: Component = {
             const subpath = path.get('arguments.0') as NodePath<
                 t.FunctionExpression | t.ArrowFunctionExpression
             >
-            if (
-                subpath.scope.getBinding('resolve') ||
-                subpath.scope.getBinding('reject')
-            ) {
-                let suffix = 1
-                while (
-                    subpath.scope.getBinding(`resolve${suffix}`) ||
-                    subpath.scope.getBinding(`reject${suffix}`)
-                ) {
-                    suffix++
-                }
-                subpath.scope.rename(resolveFn.name, `resolve${suffix}`)
-                subpath.scope.rename(rejectFn.name, `reject${suffix}`)
-            } else {
-                subpath.scope.rename(resolveFn.name, 'resolve')
-                subpath.scope.rename(rejectFn.name, 'reject')
-            }
+            // resolve/reject 互相保留对方名字，避免撞名
+            const resolveName = renameToDesired(
+                subpath.scope,
+                resolveFn.name,
+                'resolve',
+                ['reject']
+            )
+            renameToDesired(subpath.scope, rejectFn.name, 'reject', [
+                resolveName,
+            ])
         }
     },
 }
@@ -713,14 +734,163 @@ const tryCatchArgumentRewrite: Component = {
     CatchClause(path) {
         const subpath = path.get('param')
         if (!subpath.isIdentifier()) return
-        if (subpath.scope.getBinding('caughtError')) {
-            let suffix = 1
-            while (subpath.scope.getBinding(`caughtError${suffix}`)) {
-                suffix++
+        renameToDesired(subpath.scope, subpath.node.name, 'caughtError')
+    },
+}
+
+// 压缩名：1-2 字符短名，或 _ 开头的混淆名（_0x、_$ 等）
+function isMinifiedName(name: string): boolean {
+    return /^[a-zA-Z0-9_$]{1,2}$/.test(name) || /^_[a-zA-Z0-9$]+/.test(name)
+}
+
+// 可读名：非压缩名、长度 >= 3、合法标识符
+function isReadableName(name: string): boolean {
+    return name.length >= 3 && identifierIsVaild(name) && !isMinifiedName(name)
+}
+
+// 类型 -> 角色名映射（特例优先），其余走 camelCase 兜底
+const TYPE_ROLE_MAP: Record<string, string> = {
+    XMLHttpRequest: 'xhr',
+    WebSocket: 'ws',
+    Worker: 'worker',
+    AbortController: 'abortController',
+    URLSearchParams: 'params',
+    FormData: 'formData',
+    FileReader: 'reader',
+    Blob: 'blob',
+    Image: 'image',
+    Audio: 'audio',
+}
+
+function typeToRoleName(calleeName: string): string | null {
+    const mapped = TYPE_ROLE_MAP[calleeName]
+    if (mapped) return mapped
+    if (calleeName.length >= 6) {
+        return calleeName[0].toLowerCase() + calleeName.slice(1)
+    }
+    return null
+}
+
+// 对象键传播时排除的泛语义键（描述性弱，改名易误导）
+const GENERIC_KEYS = new Set([
+    'type',
+    'value',
+    'name',
+    'id',
+    'key',
+    'data',
+    'code',
+    'msg',
+    'message',
+    'text',
+    'item',
+    'index',
+    'status',
+    'url',
+    'method',
+    'length',
+    'size',
+    'error',
+    'result',
+    'list',
+    'arr',
+    'obj',
+    'str',
+    'num',
+    'bool',
+    'flag',
+    'body',
+    'head',
+    'time',
+    'date',
+    'sign',
+    'token',
+    'page',
+    'count',
+    'total',
+    'mode',
+])
+
+// 锚点传播：把未压缩的语义锚点（对象键、this、类型构造、实参）传播为压缩名的可读名。
+// 只动压缩名；冲突由 renameToDesired 解决；被重新赋值的绑定（constant === false）不动。
+const anchorPropagation: Component = {
+    ObjectProperty(path) {
+        // { options: e, success: t, fail: n } -> e/t/n 更名为 options/success/fail
+        const n = path.node
+        if (
+            n.computed ||
+            !t.isIdentifier(n.key) ||
+            !t.isIdentifier(n.value) ||
+            !isMinifiedName(n.value.name)
+        ) {
+            return
+        }
+        const key = n.key.name
+        if (key.length < 4 || GENERIC_KEYS.has(key) || !isReadableName(key)) {
+            return
+        }
+        renameToDesired(path.scope, n.value.name, key)
+        // { options: options } -> { options }（避免需要第二轮才收敛）
+        if (n.key.name === n.value.name) {
+            n.shorthand = true
+        }
+    },
+    VariableDeclarator(path) {
+        const n = path.node
+        if (!t.isIdentifier(n.id) || !isMinifiedName(n.id.name)) return
+        const idName = n.id.name
+        const binding = path.scope.getBinding(idName)
+        if (!binding || !binding.constant) return
+        let desired: string | null = null
+        // var o = this -> self
+        if (t.isThisExpression(n.init)) {
+            desired = 'self'
+        } else if (
+            t.isNewExpression(n.init) &&
+            t.isIdentifier(n.init.callee)
+        ) {
+            // var s = new XMLHttpRequest() -> xhr
+            desired = typeToRoleName(n.init.callee.name)
+        }
+        // 不做 var a = data 具名别名传播：改名会遮蔽外层源名，使 init 变自引用
+        if (!desired) return
+        renameToDesired(path.scope, idName, desired)
+    },
+    CallExpression(path) {
+        // foo(userList) -> 形参（压缩名）更名为 userList
+        const n = path.node
+        if (!t.isIdentifier(n.callee)) return
+        const binding = path.scope.getBinding(n.callee.name)
+        if (!binding) return
+        let fnPath: NodePath<t.Function> | null = null
+        if (
+            t.isFunctionDeclaration(binding.path.node) ||
+            t.isFunctionExpression(binding.path.node) ||
+            t.isArrowFunctionExpression(binding.path.node)
+        ) {
+            fnPath = binding.path as NodePath<t.Function>
+        } else if (
+            t.isVariableDeclarator(binding.path.node) &&
+            binding.path.node.init &&
+            (t.isFunctionExpression(binding.path.node.init) ||
+                t.isArrowFunctionExpression(binding.path.node.init))
+        ) {
+            fnPath = binding.path.get('init') as NodePath<t.Function>
+        }
+        if (!fnPath) return
+        // 形参注册在函数作用域，而非调用点作用域
+        for (
+            let i = 0;
+            i < n.arguments.length && i < fnPath.node.params.length;
+            i++
+        ) {
+            const arg = n.arguments[i]
+            const param = fnPath.node.params[i]
+            if (!t.isIdentifier(arg) || !t.isIdentifier(param)) continue
+            if (!isMinifiedName(param.name) || !isReadableName(arg.name)) {
+                continue
             }
-            subpath.scope.rename(subpath.node.name, `caughtError${suffix}`)
-        } else {
-            subpath.scope.rename(subpath.node.name, 'caughtError')
+            renameToDesired(fnPath.scope, param.name, arg.name)
         }
     },
 }
@@ -745,6 +915,7 @@ const pluginUncompress = combineVistors([
     extractNestExpression,
     promiseExecuterArgumentRewrite,
     tryCatchArgumentRewrite,
+    anchorPropagation,
 ])
 
 interface UncompressOptions {

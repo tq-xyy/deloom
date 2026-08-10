@@ -2,4 +2,3 @@ test
 *.ignore*
 node_modules
 dist/
-repo

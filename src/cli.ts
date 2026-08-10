@@ -1,10 +1,19 @@
-import { Command } from 'commander'
 import { readFile, writeFile, unlink, readdir, rm } from 'fs/promises'
 import * as path from 'path'
+
+import { Command } from 'commander'
+
 import { formatSource } from './uncompress'
 import { unbundle } from './unbundler'
 
 import packageJson from '../package.json'
+
+function guessOutput(input: string) {
+    if (input.endsWith('.js')) {
+        return input.replace(/\.js$/, '.out.js')
+    }
+    return input + '.out'
+}
 
 const program = new Command()
 
@@ -17,7 +26,7 @@ program
     .command('uncompress')
     .description('Uncompress a js file')
     .argument('<input>', 'input file path')
-    .argument('<output>', 'output file path')
+    .argument('[output]', 'output file path')
     .option('--no-prettier', 'disable prettier formatting')
     .option('--no-pref', 'disable prefix adding')
     .option('--throw-errors', 'throw errors instead of catching')
@@ -28,6 +37,8 @@ program
             output: string,
             options: Record<string, boolean>
         ) => {
+            output = output || guessOutput(input)
+
             try {
                 // 删除可能存在的输出文件（异步，忽略错误）
                 try {
@@ -111,22 +122,24 @@ program
     .command('unbundle')
     .description('Unbundle a set of JS files into a directory')
     .argument('<inputDir>', 'directory containing source files')
-    .argument('<output>', 'output directory')
+    .argument('[outputDir]', 'output directory')
     .option('--filter <pattern>', 'file extension or glob pattern', '*.js')
     .option('--no-log', 'disable logging')
     .option('--no-clean', 'do not remove output directory before run')
     .action(
         async (
             inputDir: string,
-            output: string,
+            outputDir: string,
             options: Record<string, any>
         ) => {
+            outputDir = outputDir || guessOutput(inputDir)
+
             try {
                 const clean = options.clean !== false
                 const enableLog = options.log !== false
 
                 if (clean) {
-                    await rm(output, { recursive: true, force: true })
+                    await rm(outputDir, { recursive: true, force: true })
                 }
 
                 const allEntries = await readdir(inputDir)
@@ -143,11 +156,13 @@ program
 
                 await unbundle({
                     entries,
-                    output,
+                    output: outputDir,
                     log: enableLog,
                 })
 
-                console.log(`Unbundle completed. Output written to ${output}`)
+                console.log(
+                    `Unbundle completed. Output written to ${outputDir}`
+                )
             } catch (err) {
                 console.error('Error during unbundle:', err)
                 process.exit(1)

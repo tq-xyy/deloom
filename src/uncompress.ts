@@ -61,38 +61,86 @@ const rawToReadable: Component = {
         }
         n.extra.raw = n.value.toString()
     },
-    BinaryExpression: {
-        enter(path) {
-            function canConstantify(node: t.Node) {
-                if (node.type === 'NumericLiteral') {
-                    return true
-                }
-                if (
-                    node.type === 'UnaryExpression' &&
-                    node.operator === '-' &&
-                    canConstantify(node.argument)
-                ) {
-                    return true
-                }
-                if (
-                    node.type === 'BinaryExpression' &&
-                    ['+', '-', '*'].includes(node.operator) &&
-                    canConstantify(node.left) &&
-                    canConstantify(node.right)
-                ) {
-                    return true
-                }
-                return false
-            }
+}
 
-            if (!canConstantify(path.node)) {
-                return
-            }
-            const value = new Function(
-                generate(t.returnStatement(path.node)).code
-            )()
-            path.replaceWith(t.numericLiteral(value))
-        },
+function tryConstify(path: NodePath<t.Expression>) {
+    function canConstantify(node: t.Node) {
+        if (node.type === 'NumericLiteral') {
+            return true
+        }
+        if (node.type === 'StringLiteral') {
+            return true
+        }
+
+        if (node.type === 'ArrayExpression' && node.elements.length === 0) {
+            return true
+        }
+        if (
+            node.type === 'UnaryExpression' &&
+            ['void', '!', '+', '-', '~'].includes(node.operator) &&
+            canConstantify(node.argument)
+        ) {
+            return true
+        }
+
+        if (
+            node.type === 'BinaryExpression' &&
+            [
+                '+',
+                '-',
+                '*',
+                '/',
+                '%',
+                '*',
+                '**',
+                '&',
+                '|',
+                '>>',
+                '>>>',
+                '<<',
+                '^',
+            ].includes(node.operator) &&
+            canConstantify(node.left) &&
+            canConstantify(node.right)
+        ) {
+            return true
+        }
+        return false
+    }
+
+    if (!canConstantify(path.node)) {
+        return
+    }
+    try {
+        const value = new Function(
+            generate(t.returnStatement(path.node)).code
+        )()
+
+        // not allow object & function
+
+        if (
+            typeof value === 'number' ||
+            typeof value === 'boolean' ||
+            typeof value === 'string' ||
+            typeof value === 'undefined' ||
+            (typeof value === 'object' && value === null)
+        ) {
+            path.replaceWith(t.valueToNode(value))
+        }
+    } catch {
+        // skip constify
+    }
+}
+
+const constantFold: Component = {
+    //  0x1f << 2 | 1 -> 124
+    // 'a' + 'b' + 'c' -> 'abc'
+    // !!0 -> false
+    Binary(path) {
+        tryConstify(path)
+    },
+    UnaryExpression(path) {
+        tryConstify(path)
     },
 }
 
@@ -201,8 +249,7 @@ const statementToBlock: Component = {
 
 const expandVariableDeclarations: Component = {
     VariableDeclaration(path) {
-        // var a = 1, b = 2, c = 3 -> let a = 1; let b = 2; const c = 3
-        // (convert to const if the variable is not reassigned)
+        // var a = 1, b = 2, c = 3 -> let a = 1; let b = 2; let c = 3
         const n = path.node
         if (t.isFor(path.parent)) {
             return
@@ -262,22 +309,6 @@ const callbackToArrow: Component = {
 }
 
 const moreReadable: Component = {
-    UnaryExpression(path) {
-        const n = path.node
-        // void 0
-        if (
-            n.operator === 'void' &&
-            t.isNumericLiteral(n.argument, { value: 0 })
-        ) {
-            path.replaceWith(t.identifier('undefined'))
-        }
-        // !0, !1
-        if (n.operator === '!' && t.isNumericLiteral(n.argument)) {
-            path.replaceWith(
-                t.booleanLiteral(n.argument.value === 0 ? true : false)
-            )
-        }
-    },
     ReturnStatement(path) {
         const n = path.node
         if (t.isUnaryExpression(n.argument, { operator: 'void' })) {
@@ -439,7 +470,7 @@ const forInitVar: Component = {
                         n.init.declarations = reserve
                     }
                     declarations.forEach(decl => {
-                        path.insertBefore(t.variableDeclaration('var', [decl]))
+                        path.insertBefore(t.variableDeclaration('let', [decl]))
                     })
                 }
             }
@@ -665,6 +696,25 @@ const extractNestExpression: Component = {
             }
         }
     },
+    LogicalExpression(path) {
+        // a && a.b -> a?.b
+        if (
+            path.node.operator === '&&' &&
+            t.isIdentifier(path.node.left) &&
+            t.isMemberExpression(path.node.right) &&
+            t.isIdentifier(path.node.right.object, {
+                name: path.node.left.name,
+            }) &&
+            t.isIdentifier(path.node.right.property) &&
+            path.node.right.computed === false
+        ) {
+            const obj = path.node.left
+            const prop = path.node.right.property
+            path.replaceWith(
+                t.optionalMemberExpression(obj, prop, false, true)
+            )
+        }
+    },
 }
 
 // 将 oldName 重命名为 desiredName；名字被占用时追加数字后缀（name1、name2...）
@@ -771,46 +821,6 @@ function typeToRoleName(calleeName: string): string | null {
     return null
 }
 
-// 对象键传播时排除的泛语义键（描述性弱，改名易误导）
-const GENERIC_KEYS = new Set([
-    'type',
-    'value',
-    'name',
-    'id',
-    'key',
-    'data',
-    'code',
-    'msg',
-    'message',
-    'text',
-    'item',
-    'index',
-    'status',
-    'url',
-    'method',
-    'length',
-    'size',
-    'error',
-    'result',
-    'list',
-    'arr',
-    'obj',
-    'str',
-    'num',
-    'bool',
-    'flag',
-    'body',
-    'head',
-    'time',
-    'date',
-    'sign',
-    'token',
-    'page',
-    'count',
-    'total',
-    'mode',
-])
-
 // 锚点传播：把未压缩的语义锚点（对象键、this、类型构造、实参）传播为压缩名的可读名。
 // 只动压缩名；冲突由 renameToDesired 解决；被重新赋值的绑定（constant === false）不动。
 const anchorPropagation: Component = {
@@ -826,7 +836,7 @@ const anchorPropagation: Component = {
             return
         }
         const key = n.key.name
-        if (key.length < 4 || GENERIC_KEYS.has(key) || !isReadableName(key)) {
+        if (key.length < 4 || !isReadableName(key)) {
             return
         }
         renameToDesired(path.scope, n.value.name, key)
@@ -901,6 +911,7 @@ function combineVistors(visitors: Visitor[]): Visitor {
 
 const pluginUncompress = combineVistors([
     rawToReadable,
+    constantFold,
     literalKeyToIdentifier,
     statementToBlock,
     expandVariableDeclarations,

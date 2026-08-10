@@ -27,7 +27,7 @@
     },
     "scripts": {
         "lint": "prettier -w **/*.ts **/*.json",
-        "build": "npm run clean && esbuild src/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json",
+        "build": "npm run clean && esbuild src/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json --sourcemap",
         "clean": "rimraf dist",
         "prepublishOnly": "npm run build && npm run lint"
     },

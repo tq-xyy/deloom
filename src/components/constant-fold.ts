@@ -65,7 +65,13 @@ function tryConstify(path: NodePath<t.Expression>) {
             typeof value === 'undefined' ||
             (typeof value === 'object' && value === null)
         ) {
-            path.replaceWith(t.valueToNode(value))
+            const newNode = t.valueToNode(value)
+            // 防止无限循环：-1 折叠后仍是 UnaryExpression(-1)，
+            // 若新旧节点等价则跳过（否则 replaceWith 触发 requeue 死循环）
+            if (t.isNodesEquivalent(path.node, newNode)) {
+                return
+            }
+            path.replaceWith(newNode)
         }
     } catch {
         // skip constify

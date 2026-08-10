@@ -26,9 +26,10 @@
         "node": ">=16"
     },
     "scripts": {
-        "lint": "prettier -w **/*.ts **/*.json",
-        "build": "npm run clean && esbuild src/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json --sourcemap",
+        "lint": "prettier -w src/**/*.ts **/*.json",
+        "build": "npm run clean && esbuild src/**/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json --sourcemap",
         "clean": "rimraf dist",
+        "typecheck": "tsc --noEmit",
         "prepublishOnly": "npm run build && npm run lint"
     },
     "dependencies": {
@@ -46,7 +47,8 @@
         "@types/babel__traverse": "^7.28.0",
         "@types/node": "^26.2.0",
         "esbuild": "^0.28.1",
+        "rimraf": "^6.1.3",
         "tsx": "^4.23.11",
-        "rimraf": "^6.1.3"
+        "typescript": "^7.0.2"
     }
 }

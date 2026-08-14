@@ -1,4 +1,4 @@
-import type { NodePath } from '@babel/traverse'
+import type { Binding, NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import { defineComponent } from '../base'
 import { isMinifiedName, isReadableName, renameToDesired } from './shared'
@@ -24,6 +24,20 @@ export function typeToRoleName(calleeName: string): string | null {
         return calleeName[0].toLowerCase() + calleeName.slice(1)
     }
     return null
+}
+
+// 绑定是否指向一个函数
+function isFunctionBinding(binding: Binding): boolean {
+    const n = binding.path.node
+    return (
+        t.isFunctionDeclaration(n) ||
+        t.isFunctionExpression(n) ||
+        t.isArrowFunctionExpression(n) ||
+        (t.isVariableDeclarator(n) &&
+            !!n.init &&
+            (t.isFunctionExpression(n.init) ||
+                t.isArrowFunctionExpression(n.init)))
+    )
 }
 
 // 锚点传播：把未压缩的语义锚点（对象键、this、类型构造、实参）传播为压缩名的可读名。
@@ -70,6 +84,117 @@ export default defineComponent({
         // 不做 var a = data 具名别名传播：改名会遮蔽外层源名，使 init 变自引用
         if (!desired) return
         renameToDesired(path.scope, idName, desired)
+    },
+    AssignmentExpression(path) {
+        // self.playNoteAtNumber = n -> 函数 n 更名为 playNoteAtNumber
+        const n = path.node
+        if (!t.isMemberExpression(n.left)) return
+        const obj = n.left.object
+        if (!(
+            t.isThisExpression(obj) ||
+            (t.isIdentifier(obj) && isReadableName(obj.name))
+        )) {
+            return
+        }
+        const prop = n.left.property
+        let propName: string | null = null
+        if (t.isIdentifier(prop) && !n.left.computed) {
+            if (isReadableName(prop.name)) propName = prop.name
+        } else if (n.left.computed && t.isStringLiteral(prop)) {
+            if (isReadableName(prop.value)) propName = prop.value
+        }
+        if (!propName) return
+        if (!t.isIdentifier(n.right) || !isMinifiedName(n.right.name)) return
+        const binding = path.scope.getBinding(n.right.name)
+        if (!binding || !isFunctionBinding(binding)) return
+        renameToDesired(path.scope, n.right.name, propName)
+    },
+    'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression'(path) {
+        // 参数在函数体内被调用（含 call/apply）-> callback（兜底命名）
+        const fnNode = path.node as t.Function
+        // 函数名绑定，用于找调用点：调用点实参可读时，实参锚点传播负责命名，本规则让位
+        let fnBinding: Binding | null = null
+        if (
+            (t.isFunctionDeclaration(fnNode) ||
+                t.isFunctionExpression(fnNode)) &&
+            fnNode.id
+        ) {
+            fnBinding = path.scope.getBinding(fnNode.id.name) ?? null
+        } else if (
+            path.parentPath &&
+            path.parentPath.isVariableDeclarator() &&
+            t.isIdentifier(path.parentPath.node.id)
+        ) {
+            fnBinding =
+                path.parentPath.scope.getBinding(
+                    path.parentPath.node.id.name
+                ) ?? null
+        }
+        const callSites: NodePath<t.CallExpression>[] = []
+        if (fnBinding) {
+            for (const ref of fnBinding.referencePaths) {
+                if (
+                    ref.parentPath &&
+                    ref.parentPath.isCallExpression() &&
+                    ref.parentPath.node.callee === ref.node
+                ) {
+                    callSites.push(ref.parentPath)
+                }
+            }
+        }
+        for (let i = 0; i < fnNode.params.length; i++) {
+            const param = fnNode.params[i]
+            if (!t.isIdentifier(param) || !isMinifiedName(param.name)) continue
+            const binding = path.scope.getBinding(param.name)
+            if (!binding) continue
+            // 调用点实参可读 -> 交给 CallExpression 锚点传播（success/fail 这类更具体语义）
+            if (
+                callSites.some(cs => {
+                    const arg = cs.node.arguments[i]
+                    return t.isIdentifier(arg) && isReadableName(arg.name)
+                })
+            ) {
+                continue
+            }
+            // 作为可读键对象属性值 -> 交给 ObjectProperty 锚点传播
+            if (
+                binding.referencePaths.some(ref => {
+                    const parent = ref.parentPath
+                    if (
+                        !parent ||
+                        !parent.isObjectProperty() ||
+                        parent.node.value !== ref.node ||
+                        parent.node.computed
+                    ) {
+                        return false
+                    }
+                    return (
+                        t.isIdentifier(parent.node.key) &&
+                        isReadableName(parent.node.key.name)
+                    )
+                })
+            ) {
+                continue
+            }
+            const called = binding.referencePaths.some(ref => {
+                const parent = ref.parentPath
+                if (!parent || !parent.isCallExpression()) return false
+                if (parent.node.callee === ref.node) return true
+                // e.call(...) / e.apply(...)
+                const callee = parent.node.callee
+                return (
+                    t.isMemberExpression(callee) &&
+                    !callee.computed &&
+                    callee.object === ref.node &&
+                    t.isIdentifier(callee.property) &&
+                    (callee.property.name === 'call' ||
+                        callee.property.name === 'apply')
+                )
+            })
+            if (called) {
+                renameToDesired(path.scope, param.name, 'callback')
+            }
+        }
     },
     CallExpression(path) {
         // foo(userList) -> 形参（压缩名）更名为 userList

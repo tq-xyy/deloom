@@ -13,12 +13,15 @@ export default defineComponent({
                 t.isFunctionExpression(path.node.arguments[0]))
         ) {
             const fn = path.node.arguments[0]
-            if (fn.params.length >= 3 || fn.params.length === 0) {
+            if (fn.params.length === 0 || fn.params.length >= 3) {
                 return
             }
             const resolveFn = fn.params[0]
-            const rejectFn = fn.params[1]
-            if (!t.isIdentifier(resolveFn) || !t.isIdentifier(rejectFn)) {
+            const rejectFn = fn.params.length > 1 ? fn.params[1] : null
+            if (!t.isIdentifier(resolveFn)) {
+                return
+            }
+            if (rejectFn && !t.isIdentifier(rejectFn)) {
                 return
             }
             const subpath = path.get('arguments.0') as NodePath<
@@ -29,11 +32,13 @@ export default defineComponent({
                 subpath.scope,
                 resolveFn.name,
                 'resolve',
-                ['reject']
+                rejectFn ? ['reject'] : []
             )
-            renameToDesired(subpath.scope, rejectFn.name, 'reject', [
-                resolveName,
-            ])
+            if (rejectFn) {
+                renameToDesired(subpath.scope, rejectFn.name, 'reject', [
+                    resolveName,
+                ])
+            }
         }
     },
 })

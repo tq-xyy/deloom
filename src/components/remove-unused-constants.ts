@@ -16,7 +16,13 @@ export default defineComponent({
             name: 'undefined',
         })
 
-        if (isLiteral || isUndefined) {
+        // !0、void 0、-1 等折叠残留（constantFold 折叠前是无副作用的 UnaryExpression）
+        const isFoldableUnary =
+            t.isUnaryExpression(n.expression) &&
+            ['!', '+', '-', '~', 'void'].includes(n.expression.operator) &&
+            t.isLiteral(n.expression.argument)
+
+        if (isLiteral || isUndefined || isFoldableUnary) {
             path.remove()
         }
     },

@@ -1,8 +1,20 @@
 import type * as t from '@babel/types'
 
-interface Options {
-    entries: string[]
-    output: string
+type BundleType = 'webpack' | 'browserify' | 'unknown'
+
+interface BundleSource {
+    filename: string
+    content: string
+}
+
+interface UnbundleResult {
+    type: BundleType
+    files: Record<string, string>
+    tips: string
+}
+
+interface UnbundleOptions {
+    sources: BundleSource[]
     log?: boolean
 }
 
@@ -12,7 +24,9 @@ interface UncompressOptions {
     throwErrors?: boolean
 }
 
-export function unbundle(options: Options): Promise<void>
+export function unbundle(options: UnbundleOptions): Promise<UnbundleResult>
+
+export function detectBundle(content: string): BundleType
 
 export function formatSource(
     source: string | t.Program,

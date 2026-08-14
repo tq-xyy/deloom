@@ -1,10 +1,11 @@
-import { readFile, writeFile, unlink, readdir, rm } from 'fs/promises'
+import { readFile, writeFile, unlink, readdir, rm, mkdir } from 'fs/promises'
 import * as path from 'path'
 
 import { Command } from 'commander'
 
 import { formatSource } from './uncompress'
-import { unbundle } from './unbundler'
+import { detectBundle, unbundle } from './unbundler'
+import type { BundleSource } from './unbundler'
 
 import packageJson from '../package.json'
 
@@ -154,11 +155,27 @@ program
                     return
                 }
 
-                await unbundle({
-                    entries,
-                    output: outputDir,
+                // 文件无关：读入内容交给 unbundle，落盘由 CLI 完成
+                const sources: BundleSource[] = []
+                for (const entry of entries) {
+                    sources.push({
+                        filename: entry,
+                        content: await readFile(entry, 'utf-8'),
+                    })
+                }
+
+                const result = await unbundle({
+                    sources,
                     log: enableLog,
                 })
+
+                for (const [relpath, content] of Object.entries(
+                    result.files
+                )) {
+                    const filepath = path.join(outputDir, relpath)
+                    await mkdir(path.dirname(filepath), { recursive: true })
+                    await writeFile(filepath, content, 'utf-8')
+                }
 
                 console.log(
                     `Unbundle completed. Output written to ${outputDir}`
@@ -169,5 +186,20 @@ program
             }
         }
     )
+
+program
+    .command('detect')
+    .description('Detect the bundler type of a file')
+    .argument('<input>', 'input file path')
+    .action(async (input: string) => {
+        try {
+            const content = await readFile(input, 'utf-8')
+            const type = detectBundle(content)
+            console.log(`${path.basename(input)}: ${type}`)
+        } catch (err) {
+            console.error('Error during detect:', err)
+            process.exit(1)
+        }
+    })
 
 program.parse()

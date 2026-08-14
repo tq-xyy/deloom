@@ -1,2 +1,3 @@
 export { formatSource } from './uncompress'
-export { unbundle } from './unbundler'
+export { unbundle, detectBundle } from './unbundler'
+export type { BundleType, BundleSource, UnbundleResult } from './unbundler'

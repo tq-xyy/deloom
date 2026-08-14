@@ -4,7 +4,9 @@ import { defineComponent } from '../base'
 import { isMinifiedName, isReadableName, renameToDesired } from './shared'
 
 // 类型 -> 角色名映射（特例优先），其余走 camelCase 兜底
-const TYPE_ROLE_MAP: Record<string, string> = {
+// 用无原型对象：避免 'constructor'/'toString' 等键名命中 Object.prototype 返回函数
+const TYPE_ROLE_MAP: Record<string, string> = Object.create(null)
+Object.assign(TYPE_ROLE_MAP, {
     XMLHttpRequest: 'xhr',
     WebSocket: 'ws',
     Worker: 'worker',
@@ -15,15 +17,16 @@ const TYPE_ROLE_MAP: Record<string, string> = {
     Blob: 'blob',
     Image: 'image',
     Audio: 'audio',
-}
+})
 
 export function typeToRoleName(calleeName: string): string | null {
-    const mapped = TYPE_ROLE_MAP[calleeName]
-    if (mapped) return mapped
-    if (calleeName.length >= 6) {
-        return calleeName[0].toLowerCase() + calleeName.slice(1)
+    if (!Object.hasOwn(TYPE_ROLE_MAP, calleeName)) {
+        if (calleeName.length >= 6) {
+            return calleeName[0].toLowerCase() + calleeName.slice(1)
+        }
+        return null
     }
-    return null
+    return TYPE_ROLE_MAP[calleeName]
 }
 
 // 绑定是否指向一个函数

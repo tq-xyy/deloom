@@ -5,7 +5,9 @@ export function identifierIsVaild(value: string) {
     const keywords = (
         'break,extends,this,catch,for,case,finally,throw,try,class,function,typeof,const,if,var,continue,' +
         'import,void,debugger,in,white,default,instanceof,with,delete,net,yield,do,return,else,super,export,switch,' +
-        'enum,implements,package,public,interface,private,static,protected,let'
+        'enum,implements,package,public,interface,private,static,protected,let,' +
+        // 严格模式保留名：不能作为绑定名/赋值目标（形参改名成它们会产出非法代码）
+        'arguments,eval'
     ).split(',')
     const namedRegex = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/
     return !keywords.includes(value) && namedRegex.test(value)

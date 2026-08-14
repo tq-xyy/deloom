@@ -140,23 +140,27 @@ export default defineComponent({
             }
         }
     },
-    LogicalExpression(path) {
-        // a && a.b -> a?.b
-        if (
-            path.node.operator === '&&' &&
-            t.isIdentifier(path.node.left) &&
-            t.isMemberExpression(path.node.right) &&
-            t.isIdentifier(path.node.right.object, {
-                name: path.node.left.name,
-            }) &&
-            t.isIdentifier(path.node.right.property) &&
-            path.node.right.computed === false
-        ) {
-            const obj = path.node.left
-            const prop = path.node.right.property
-            path.replaceWith(
-                t.optionalMemberExpression(obj, prop, false, true)
-            )
-        }
+    LogicalExpression: {
+        // 用 exit：left 可能是 AssignmentExpression（如 (n = e(x)) && n.b），
+        // 需等 AssignmentExpression visitor 提取为语句后结构才定型，一轮收敛
+        exit(path) {
+            // a && a.b -> a?.b
+            if (
+                path.node.operator === '&&' &&
+                t.isIdentifier(path.node.left) &&
+                t.isMemberExpression(path.node.right) &&
+                t.isIdentifier(path.node.right.object, {
+                    name: path.node.left.name,
+                }) &&
+                t.isIdentifier(path.node.right.property) &&
+                path.node.right.computed === false
+            ) {
+                const obj = path.node.left
+                const prop = path.node.right.property
+                path.replaceWith(
+                    t.optionalMemberExpression(obj, prop, false, true)
+                )
+            }
+        },
     },
 })

@@ -2,12 +2,16 @@ import * as t from '@babel/types'
 import { defineComponent } from '../base'
 
 export default defineComponent({
-    ReturnStatement(path) {
-        const n = path.node
-        if (t.isUnaryExpression(n.argument, { operator: 'void' })) {
-            path.insertBefore(t.expressionStatement(n.argument.argument))
-            delete n.argument
-        }
+    ReturnStatement: {
+        // 用 exit：return a, void b 需等 SequenceExpression 提取（extract-nest-expression）
+        // 完成、argument 变成 UnaryExpression(void) 后才匹配，一轮收敛
+        exit(path) {
+            const n = path.node
+            if (t.isUnaryExpression(n.argument, { operator: 'void' })) {
+                path.insertBefore(t.expressionStatement(n.argument.argument))
+                delete n.argument
+            }
+        },
     },
     ObjectProperty(path) {
         const n = path.node

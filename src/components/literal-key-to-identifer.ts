@@ -10,30 +10,47 @@ export default defineComponent({
             t.isStringLiteral(n.key) &&
             identifierIsVaild(n.key.value)
         ) {
-            n.computed = false
-            n.key = t.identifier(n.key.value)
+            path.replaceWith(
+                t.classMethod(
+                    n.kind,
+                    t.identifier(n.key.value),
+                    n.params,
+                    n.body,
+                    n.computed,
+                    n.static,
+                    n.generator,
+                    n.async
+                )
+            )
         }
     },
     MemberExpression(path) {
         const n = path.node
         if (
+            n.computed &&
             t.isStringLiteral(n.property) &&
             identifierIsVaild(n.property.value)
         ) {
-            n.property = t.identifier(n.property.value)
-            n.computed = false
+            path.replaceWith(
+                t.memberExpression(
+                    n.object,
+                    t.identifier(n.property.value),
+                    false
+                )
+            )
         }
     },
     ObjectProperty(path) {
         // {['a']: 1} -> {a:1}
         const n = path.node
         if (
+            n.computed &&
             t.isStringLiteral(n.key) &&
-            identifierIsVaild(n.key.value) &&
-            n.computed
+            identifierIsVaild(n.key.value)
         ) {
-            n.key = t.identifier(n.key.value)
-            n.computed = false
+            path.replaceWith(
+                t.objectProperty(t.identifier(n.key.value), n.value, false)
+            )
         }
 
         // {a: function(){}} -> {a() {}}

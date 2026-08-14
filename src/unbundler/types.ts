@@ -1,6 +1,6 @@
 import type { NodePath } from '@babel/traverse'
 import type * as t from '@babel/types'
-import type { Helper } from '../helper'
+import type { Helper } from './webpack-helper'
 
 export type ModuleID = string & { __identifier_unused: null }
 

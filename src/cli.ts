@@ -4,7 +4,7 @@ import * as path from 'path'
 import { Command } from 'commander'
 
 import { formatSource } from './uncompress'
-import { detectBundle, unbundle } from './unbundler'
+import { detectBundle, unbundle } from './unbundler/index'
 import type { BundleSource } from './unbundler'
 
 import packageJson from '../package.json'

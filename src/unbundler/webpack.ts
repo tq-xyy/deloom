@@ -4,7 +4,7 @@ import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import template from '@babel/template'
 
-import { isHelper, WEBPACK_HELPER_ID } from '../helper'
+import { isHelper, WEBPACK_HELPER_ID } from './webpack-helper'
 import { detectCjsRoles } from './roles'
 import type {
     BundlerStrategy,
@@ -78,8 +78,7 @@ function transformWebpackModule(
                 const args = path.parent.arguments
                 if (
                     args.length == 1 &&
-                    (t.isNumericLiteral(args[0]) ||
-                        t.isStringLiteral(args[0]))
+                    (t.isNumericLiteral(args[0]) || t.isStringLiteral(args[0]))
                 ) {
                     const depID = args[0].value.toString()
                     deps.add(depID as ModuleID)
@@ -87,17 +86,13 @@ function transformWebpackModule(
                     // TODO: relative import
 
                     path.parent.arguments = [
-                        t.stringLiteral(
-                            './' + ctx.rewrite(depID as ModuleID)
-                        ),
+                        t.stringLiteral('./' + ctx.rewrite(depID as ModuleID)),
                     ]
 
                     // replace random single import name with import${moduleId}
                     if (
                         path.parentPath?.parentPath?.isVariableDeclarator() &&
-                        t.isIdentifier(
-                            path.parentPath.parentPath.node.id
-                        ) &&
+                        t.isIdentifier(path.parentPath.parentPath.node.id) &&
                         path.parentPath.parentPath.node.id.name.length <= 2
                     ) {
                         path.parentPath.parentPath
@@ -136,16 +131,14 @@ function transformWebpackModule(
                     path.parentPath?.parentPath?.isCallExpression({
                         callee: path.parent,
                     }) &&
-                    path.parentPath.parentPath.node.arguments.length ===
-                        2 &&
+                    path.parentPath.parentPath.node.arguments.length === 2 &&
                     t.isIdentifier(
                         path.parentPath.parentPath.node.arguments[0],
                         { name: 'exports' }
                     )
                 ) {
                     // replace webpack rename
-                    const props =
-                        path.parentPath.parentPath.node.arguments[1]
+                    const props = path.parentPath.parentPath.node.arguments[1]
                     t.assertObjectExpression(props)
 
                     const exports: t.Statement[] = []
@@ -205,8 +198,7 @@ function transformWebpackModule(
                 } else if (
                     helperName === 'n' &&
                     path.parentPath.parentPath?.isCallExpression() &&
-                    path.parentPath.parentPath.node.arguments.length ===
-                        1 &&
+                    path.parentPath.parentPath.node.arguments.length === 1 &&
                     t.isIdentifier(
                         path.parentPath.parentPath.node.arguments[0]
                     ) &&
@@ -220,8 +212,7 @@ function transformWebpackModule(
                     path.parentPath.parentPath.parentPath
                         .get('id')
                         .scope.rename(
-                            path.parentPath.parentPath.parentPath.node.id
-                                .name,
+                            path.parentPath.parentPath.parentPath.node.id.name,
                             `${path.parentPath.parentPath.node.arguments[0].name}$n`
                         )
                     const call = addPatch(helperName)
@@ -231,8 +222,7 @@ function transformWebpackModule(
                     path.parentPath?.parentPath?.isCallExpression({
                         callee: path.parent,
                     }) &&
-                    path.parentPath.parentPath.node.arguments.length ===
-                        2 &&
+                    path.parentPath.parentPath.node.arguments.length === 2 &&
                     t.isIdentifier(
                         path.parentPath.parentPath.node.arguments[0]
                     )

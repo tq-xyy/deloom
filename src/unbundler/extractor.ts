@@ -1,11 +1,10 @@
 import { parse } from '@babel/parser'
 import type { NodePath } from '@babel/traverse'
-import traverse from '@babel/traverse'
 import * as t from '@babel/types'
 import * as path from 'path'
 
-import type { Helper } from '../helper'
-import { concatHelper, WEBPACK_HELPER_ID } from '../helper'
+import type { Helper } from './webpack-helper'
+import { concatHelper, WEBPACK_HELPER_ID } from './webpack-helper'
 import { formatSource } from '../uncompress'
 import type {
     BundlerStrategy,
@@ -112,7 +111,9 @@ export class Extractor {
     }
 
     /** 生成单个模块的输出（banner + 格式化代码），不落盘 */
-    async emit(module: ModuleInfo): Promise<{ filename: string; content: string }> {
+    async emit(
+        module: ModuleInfo
+    ): Promise<{ filename: string; content: string }> {
         const problems = this.tips
             .filter(tip => tip.module === module.id)
             .map(({ type, src }) => {

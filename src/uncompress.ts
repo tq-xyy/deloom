@@ -132,6 +132,9 @@ export async function formatSource(
 
         return result
     } catch (err) {
+        if (err instanceof SyntaxError) {
+            err.message = err.message.split('\n', 2)[0]
+        }
         if (throwErrors) {
             throw err
         }

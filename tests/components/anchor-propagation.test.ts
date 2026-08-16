@@ -2,8 +2,8 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import anchorPropagation, {
     typeToRoleName,
-} from '../src/components/anchor-propagation'
-import { transform } from './helpers'
+} from '../../src/components/anchor-propagation'
+import { transform } from '../helpers'
 
 describe('anchor-propagation: ObjectProperty anchor', () => {
     test('readable key + minified value -> rename value and use shorthand', () => {

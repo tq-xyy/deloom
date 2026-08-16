@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import callbackToArrow from '../src/components/callback-to-arrow'
-import { transform } from './helpers'
+import callbackToArrow from '../../src/components/callback-to-arrow'
+import { transform } from '../helpers'
 
 describe('callback-to-arrow', () => {
     test('function expression as call argument -> arrow function', () => {

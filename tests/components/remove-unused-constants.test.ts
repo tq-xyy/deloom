@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import removeUnusedConstants from '../src/components/remove-unused-constants'
-import { transform } from './helpers'
+import removeUnusedConstants from '../../src/components/remove-unused-constants'
+import { transform } from '../helpers'
 
 describe('remove-unused-constants', () => {
     test('all literal expression statements removed', () => {

@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import moreReadable from '../src/components/more-readable'
-import { transform } from './helpers'
+import moreReadable from '../../src/components/more-readable'
+import { transform } from '../helpers'
 
 describe('more-readable', () => {
     test('return void x -> x; return (void wrapper stripped)', () => {

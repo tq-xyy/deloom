@@ -5,8 +5,8 @@ import {
     isMinifiedName,
     isReadableName,
     renameToDesired,
-} from '../src/components/shared'
-import { withScope } from './helpers'
+} from '../../src/components/shared'
+import { withScope } from '../helpers'
 
 describe('identifierIsVaild', () => {
     test('valid identifiers', () => {

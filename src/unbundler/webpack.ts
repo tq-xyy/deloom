@@ -186,6 +186,10 @@ function transformWebpackModule(
                         })
                     ) {
                         call.remove()
+                    } else {
+                        // 非 exports 参数（罕见）：走 requireR patch
+                        const patch = addPatch(helperName)
+                        path.parentPath.replaceWithSourceString(patch)
                     }
                 } else if (helperName === 'g') {
                     path.parentPath.replaceWith(t.identifier('globalThis'))
@@ -223,16 +227,22 @@ function transformWebpackModule(
                         callee: path.parent,
                     }) &&
                     path.parentPath.parentPath.node.arguments.length === 2 &&
-                    t.isIdentifier(
+                    // terser 压缩产物是 require.bind(null, id)，
+                    // 手写产物可能是 require.bind(this, id)
+                    (t.isIdentifier(
                         path.parentPath.parentPath.node.arguments[0]
-                    )
+                    ) ||
+                        t.isNullLiteral(
+                            path.parentPath.parentPath.node.arguments[0]
+                        ))
                 ) {
                     const requireCall = path.parentPath.parentPath.node
                     const depID = (
                         requireCall.arguments[1] as
                             t.StringLiteral | t.NumericLiteral
                     ).value
-                    deps.add(depID as ModuleID)
+                    // 与 graph() 的模块 id 保持一致（字符串）
+                    deps.add(String(depID) as ModuleID)
 
                     // TODO: relative import
 

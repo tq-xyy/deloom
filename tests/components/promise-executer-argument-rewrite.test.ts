@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import promiseExecuterArgumentRewrite from '../src/components/promise-executer-argument-rewrite'
-import { transform } from './helpers'
+import promiseExecuterArgumentRewrite from '../../src/components/promise-executer-argument-rewrite'
+import { transform } from '../helpers'
 
 describe('promise-executer-argument-rewrite', () => {
     test('two-param arrow -> resolve/reject', () => {

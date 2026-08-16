@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import tryCatchArgumentRewrite from '../src/components/try-catch-argument-rewrite'
-import { transform } from './helpers'
+import tryCatchArgumentRewrite from '../../src/components/try-catch-argument-rewrite'
+import { transform } from '../helpers'
 
 describe('try-catch-argument-rewrite', () => {
     test('catch param -> caughtError', () => {

@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import forInitVar from '../src/components/for-init-var'
-import { transform } from './helpers'
+import forInitVar from '../../src/components/for-init-var'
+import { transform } from '../helpers'
 
 describe('for-init-var: expression init', () => {
     test('SequenceExpression init: leading statements hoisted, last kept', () => {

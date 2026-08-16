@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import expandVariableDeclarations from '../src/components/expand-variable-declarations'
-import { transform } from './helpers'
+import expandVariableDeclarations from '../../src/components/expand-variable-declarations'
+import { transform } from '../helpers'
 
 describe('expand-variable-declarations', () => {
     test('splits var multi-declarations into multiple let statements', () => {

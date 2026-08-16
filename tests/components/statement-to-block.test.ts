@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import statementToBlock from '../src/components/statement-to-block'
-import { transform } from './helpers'
+import statementToBlock from '../../src/components/statement-to-block'
+import { transform } from '../helpers'
 
 describe('statement-to-block', () => {
     test('for body not a block -> wrapped', () => {

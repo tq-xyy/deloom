@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import constantFold from '../src/components/constant-fold'
-import { transform } from './helpers'
+import constantFold from '../../src/components/constant-fold'
+import { transform } from '../helpers'
 
 describe('constant-fold', () => {
     test('folds string concatenation', () => {

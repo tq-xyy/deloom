@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import conditionTransformIf from '../src/components/condition-transform-if'
-import extractNestExpression from '../src/components/extract-nest-expression'
-import { transform } from './helpers'
+import conditionTransformIf from '../../src/components/condition-transform-if'
+import extractNestExpression from '../../src/components/extract-nest-expression'
+import { transform } from '../helpers'
 
 describe('condition-transform-if: ConditionalExpression', () => {
     test('ternary in expression statement -> if/else', () => {

@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import * as t from '@babel/types'
-import extractNestExpression from '../src/components/extract-nest-expression'
-import { transform, visitAst } from './helpers'
+import extractNestExpression from '../../src/components/extract-nest-expression'
+import { transform, visitAst } from '../helpers'
 
 describe('extract-nest-expression: SequenceExpression', () => {
     test('(0, a)() -> a()', () => {

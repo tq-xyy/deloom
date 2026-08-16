@@ -4,8 +4,8 @@ import { parse } from '@babel/parser'
 import * as t from '@babel/types'
 import complexToReference, {
     checkObjectLevelMoreThan,
-} from '../src/components/complex-to-reference'
-import { transform } from './helpers'
+} from '../../src/components/complex-to-reference'
+import { transform } from '../helpers'
 
 const deepObject = `{a:{b:{c:{d:{e:{f:{g:{h:{i:1}}}}}}}}}`
 

@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import * as t from '@babel/types'
-import literalKeyToIdentifier from '../src/components/literal-key-to-identifer'
-import { transform, transformNode } from './helpers'
+import literalKeyToIdentifier from '../../src/components/literal-key-to-identifer'
+import { transform, transformNode } from '../helpers'
 
 describe('literal-key-to-identifer', () => {
     test('object computed key -> identifier key', () => {

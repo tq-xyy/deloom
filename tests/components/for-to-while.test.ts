@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import forToWhile from '../src/components/for-to-while'
-import { transform } from './helpers'
+import forToWhile from '../../src/components/for-to-while'
+import { transform } from '../helpers'
 
 describe('for-to-while', () => {
     test('for(init;;) -> init; for(;;)', () => {

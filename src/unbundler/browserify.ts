@@ -93,11 +93,12 @@ function transformBrowserifyModule(
             return
         }
         const depKey = args[0].value
-        const depID = depMap.get(depKey) || depKey
-        deps.add(depID as ModuleID)
-        path.parent.arguments = [
-            t.stringLiteral('./' + ctx.rewrite(depID as ModuleID)),
-        ]
+        // 依赖表缺失时 fallback 到模块名；去掉相对路径前缀，
+        // 避免重写后出现 ././foo.cjs 双重前缀
+        const depID = (depMap.get(depKey) ||
+            depKey.replace(/^\.\//, '')) as ModuleID
+        deps.add(depID)
+        path.parent.arguments = [t.stringLiteral('./' + ctx.rewrite(depID))]
         // 单字母导入名 -> import_<模块名>（模块名可能含路径，做 sanitize）
         if (
             path.parentPath?.parentPath?.isVariableDeclarator() &&

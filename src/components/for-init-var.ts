@@ -6,13 +6,15 @@ export default defineComponent({
         const n = path.node
         if (n.init) {
             if (t.isExpression(n.init)) {
+                // for (a(), b(); ;) -> a(); for (b();;)
                 if (t.isSequenceExpression(n.init)) {
                     const lastone = n.init.expressions.pop()
                     path.insertBefore(t.expressionStatement(n.init))
                     n.init = lastone
                 } else if (t.isAssignmentExpression(n.init)) {
-                    // pass
+                    // for (i = 0; ;) 赋值保留在 for 头
                 } else {
+                    // for (foo(); ;) -> foo(); for (;;)
                     path.insertBefore(t.expressionStatement(n.init))
                     delete n.init
                 }
@@ -21,16 +23,16 @@ export default defineComponent({
                 t.isUpdateExpression(n.update) &&
                 t.isIdentifier(n.update.argument)
             ) {
+                // for (var i = 0, j = 1; i < 10; i++)
+                //   -> let j = 1; for (var i = 0; i < 10; i++)
                 const variable = n.update.argument.name
 
                 if (n.init.declarations.length !== 1) {
                     const reserve: t.VariableDeclarator[] = []
                     const declarations: t.VariableDeclarator[] = []
                     for (const decl of n.init.declarations) {
-                        if (
-                            !t.isIdentifier(decl.id, { name: variable }) ||
-                            decl.id.name !== variable
-                        ) {
+                        // 仅保留与循环变量同名的声明
+                        if (!t.isIdentifier(decl.id, { name: variable })) {
                             declarations.push(decl)
                         } else {
                             reserve.push(decl)
@@ -51,10 +53,8 @@ export default defineComponent({
     },
     ForInStatement(path) {
         const n = path.node
-        if (
-            t.isSequenceExpression(n.right) &&
-            n.right.expressions.length >= 1
-        ) {
+        // for (var k in a, b) -> a; for (var k in b)
+        if (t.isSequenceExpression(n.right)) {
             const lastone = n.right.expressions.pop()!
             path.insertBefore(t.expressionStatement(n.right))
             n.right = lastone

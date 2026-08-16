@@ -29,6 +29,6 @@ export function unbundle(options: UnbundleOptions): Promise<UnbundleResult>
 export function detectBundle(content: string): BundleType
 
 export function formatSource(
-    source: string | t.Program,
+    source: string | t.Program | t.File,
     options?: UncompressOptions
 ): Promise<string>

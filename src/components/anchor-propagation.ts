@@ -35,7 +35,6 @@ function isFunctionBinding(binding: Binding): boolean {
     return (
         t.isFunctionDeclaration(n) ||
         t.isFunctionExpression(n) ||
-        t.isArrowFunctionExpression(n) ||
         (t.isVariableDeclarator(n) &&
             !!n.init &&
             (t.isFunctionExpression(n.init) ||
@@ -47,7 +46,7 @@ function isFunctionBinding(binding: Binding): boolean {
 // 只动压缩名；冲突由 renameToDesired 解决；被重新赋值的绑定（constant === false）不动。
 export default defineComponent({
     ObjectProperty(path) {
-        // { options: e, success: t, fail: n } -> e/t/n 更名为 options/success/fail
+        // { options: e, success: t } -> e/t 更名为 options/success（同名转 shorthand）
         const n = path.node
         if (
             n.computed ||
@@ -62,29 +61,28 @@ export default defineComponent({
             return
         }
         renameToDesired(path.scope, n.value.name, key)
-        // { options: options } -> { options }（避免需要第二轮才收敛）
         if (n.key.name === n.value.name) {
             n.shorthand = true
         }
     },
     VariableDeclarator(path) {
+        // var o = this -> var self = this
+        // var x = new XMLHttpRequest() -> var xhr = ...
         const n = path.node
         if (!t.isIdentifier(n.id) || !isMinifiedName(n.id.name)) return
         const idName = n.id.name
         const binding = path.scope.getBinding(idName)
         if (!binding || !binding.constant) return
         let desired: string | null = null
-        // var o = this -> self
         if (t.isThisExpression(n.init)) {
             desired = 'self'
         } else if (
             t.isNewExpression(n.init) &&
             t.isIdentifier(n.init.callee)
         ) {
-            // var s = new XMLHttpRequest() -> xhr
             desired = typeToRoleName(n.init.callee.name)
         }
-        // 不做 var a = data 具名别名传播：改名会遮蔽外层源名，使 init 变自引用
+        // 不做 var a = data 别名传播：改名会遮蔽外层源名，使 init 变自引用
         if (!desired) return
         renameToDesired(path.scope, idName, desired)
     },
@@ -115,23 +113,21 @@ export default defineComponent({
     'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression'(path) {
         // 参数在函数体内被调用（含 call/apply）-> callback（兜底命名）
         const fnNode = path.node as t.Function
-        // 函数名绑定，用于找调用点：调用点实参可读时，实参锚点传播负责命名，本规则让位
-        let fnBinding: Binding | null = null
+        // 函数名绑定用于找调用点；调用点实参可读时由实参锚点传播负责命名，本规则让位
+        let fnBinding: Binding | undefined
         if (
             (t.isFunctionDeclaration(fnNode) ||
                 t.isFunctionExpression(fnNode)) &&
             fnNode.id
         ) {
-            fnBinding = path.scope.getBinding(fnNode.id.name) ?? null
+            fnBinding = path.scope.getBinding(fnNode.id.name)
         } else if (
-            path.parentPath &&
-            path.parentPath.isVariableDeclarator() &&
+            path.parentPath!.isVariableDeclarator() &&
             t.isIdentifier(path.parentPath.node.id)
         ) {
-            fnBinding =
-                path.parentPath.scope.getBinding(
-                    path.parentPath.node.id.name
-                ) ?? null
+            fnBinding = path.parentPath.scope.getBinding(
+                path.parentPath.node.id.name
+            )
         }
         const callSites: NodePath<t.CallExpression>[] = []
         if (fnBinding) {
@@ -148,8 +144,8 @@ export default defineComponent({
         for (let i = 0; i < fnNode.params.length; i++) {
             const param = fnNode.params[i]
             if (!t.isIdentifier(param) || !isMinifiedName(param.name)) continue
-            const binding = path.scope.getBinding(param.name)
-            if (!binding) continue
+            // 函数形参的绑定必然存在（babel scope 注册）
+            const binding = path.scope.getBinding(param.name)!
             // 调用点实参可读 -> 交给 CallExpression 锚点传播（success/fail 这类更具体语义）
             if (
                 callSites.some(cs => {
@@ -162,9 +158,8 @@ export default defineComponent({
             // 作为可读键对象属性值 -> 交给 ObjectProperty 锚点传播
             if (
                 binding.referencePaths.some(ref => {
-                    const parent = ref.parentPath
+                    const parent = ref.parentPath!
                     if (
-                        !parent ||
                         !parent.isObjectProperty() ||
                         parent.node.value !== ref.node ||
                         parent.node.computed
@@ -180,18 +175,20 @@ export default defineComponent({
                 continue
             }
             const called = binding.referencePaths.some(ref => {
-                const parent = ref.parentPath
-                if (!parent || !parent.isCallExpression()) return false
-                if (parent.node.callee === ref.node) return true
-                // e.call(...) / e.apply(...)
-                const callee = parent.node.callee
+                const parent = ref.parentPath!
+                if (parent.isCallExpression()) {
+                    return parent.node.callee === ref.node
+                }
+                // e.call(...) / e.apply(...)：需确认 member 是调用的 callee
                 return (
-                    t.isMemberExpression(callee) &&
-                    !callee.computed &&
-                    callee.object === ref.node &&
-                    t.isIdentifier(callee.property) &&
-                    (callee.property.name === 'call' ||
-                        callee.property.name === 'apply')
+                    parent.isMemberExpression() &&
+                    !parent.node.computed &&
+                    parent.node.object === ref.node &&
+                    t.isIdentifier(parent.node.property) &&
+                    (parent.node.property.name === 'call' ||
+                        parent.node.property.name === 'apply') &&
+                    parent.parentPath!.isCallExpression() &&
+                    parent.parentPath.node.callee === parent.node
                 )
             })
             if (called) {

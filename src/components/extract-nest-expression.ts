@@ -5,7 +5,6 @@ import { defineComponent } from '../base'
 export default defineComponent({
     SequenceExpression(path) {
         const n = path.node
-        if (path.parentPath.removed) return
 
         // (0, a)() -> a()
         if (
@@ -25,7 +24,7 @@ export default defineComponent({
             return
         }
 
-        // return a, b -> a; return b
+        // return a, b -> a; return b（throw 同理）
         if (
             t.isReturnStatement(path.parent) ||
             t.isThrowStatement(path.parent)
@@ -48,11 +47,11 @@ export default defineComponent({
             return
         }
 
-        // var a = (b, c) -> b; var a = c
+        // var x = (a, b) -> a; var x = b
         if (
             t.isVariableDeclarator(path.parent) &&
             path.parentKey === 'init' &&
-            path.parentPath.parentPath?.isVariableDeclaration()
+            path.parentPath.parentPath!.isVariableDeclaration()
         ) {
             const lastone = n.expressions.pop()!
             for (const expr of n.expressions) {
@@ -64,14 +63,14 @@ export default defineComponent({
             return
         }
 
-        // fn((a, b)) -> a; fn(b)
+        // fn((a, b)) -> a; fn(b)（父为语句时才能提出）
         if (
             t.isCallExpression(path.parent) &&
             path.parentKey === 'arguments'
         ) {
-            const statementBlock = path.parentPath.parentPath
+            const statementBlock = path.parentPath.parentPath!
 
-            if (statementBlock?.isStatement()) {
+            if (statementBlock.isStatement()) {
                 const lastone = n.expressions.pop()!
                 for (const expr of n.expressions) {
                     statementBlock.insertBefore(t.expressionStatement(expr))
@@ -82,26 +81,30 @@ export default defineComponent({
     },
     AssignmentExpression(path) {
         const n = path.node
-        if (t.isPattern(n.left) || t.isPattern(n.right)) {
+        // 解构赋值不动（[a] = b、({a} = b)）
+        if (t.isPattern(n.left)) {
             return
         }
 
         if (n.operator === '=') {
             let current: NodePath<t.Node> = path
 
-            while (current.parentPath && !current.parentPath.isStatement()) {
-                current = current.parentPath
+            // 合法 AST 中赋值表达式恒有语句祖先
+            while (!current.parentPath!.isStatement()) {
+                current = current.parentPath!
             }
 
+            // if (x = f()) {...} -> x = f(); if (x) {...}
             if (
-                current?.parentPath?.isIfStatement() &&
+                current.parentPath!.isIfStatement() &&
                 current.parentKey === 'test'
             ) {
                 current.parentPath.insertBefore(t.expressionStatement(n))
                 path.replaceWith(n.left)
             }
+            // return x = f() -> x = f(); return x
             if (
-                current?.parentPath?.isReturnStatement({
+                current.parentPath!.isReturnStatement({
                     argument: n,
                 }) &&
                 current.parentKey === 'argument'
@@ -109,17 +112,15 @@ export default defineComponent({
                 current.parentPath.insertBefore(t.expressionStatement(n))
                 path.replaceWith(n.left)
             }
-            if (current.parentPath?.isVariableDeclaration()) {
+            // var y = (x = f()) -> x = f(); var y = x
+            if (current.parentPath!.isVariableDeclaration()) {
                 current.parentPath.insertBefore(t.expressionStatement(n))
                 path.replaceWith(n.left)
             }
         }
         if (['+=', '-='].includes(n.operator)) {
-            let root = path.findParent(path => path.isStatement())
-
-            if (!root) {
-                return
-            }
+            // a += b += c -> b += c; a += b
+            const root = path.findParent(path => path.isStatement())!
 
             let chains: t.AssignmentExpression[] = [],
                 curr = n

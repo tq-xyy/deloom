@@ -4,6 +4,7 @@ import { identifierIsVaild } from './shared'
 
 export default defineComponent({
     ClassMethod(path) {
+        // class A { ['m'](){} } -> class A { m(){} }
         const n = path.node
         if (
             n.computed &&
@@ -16,7 +17,7 @@ export default defineComponent({
                     t.identifier(n.key.value),
                     n.params,
                     n.body,
-                    n.computed,
+                    false,
                     n.static,
                     n.generator,
                     n.async
@@ -25,6 +26,7 @@ export default defineComponent({
         }
     },
     MemberExpression(path) {
+        // obj['a'] -> obj.a
         const n = path.node
         if (
             n.computed &&
@@ -41,24 +43,22 @@ export default defineComponent({
         }
     },
     ObjectProperty(path) {
-        // {['a']: 1} -> {a:1}
         const n = path.node
         if (
             n.computed &&
             t.isStringLiteral(n.key) &&
             identifierIsVaild(n.key.value)
         ) {
+            // {['a']: 1} -> {a: 1}
             path.replaceWith(
                 t.objectProperty(t.identifier(n.key.value), n.value, false)
             )
-        }
-
-        // {a: function(){}} -> {a() {}}
-        if (
+        } else if (
             t.isFunctionExpression(n.value) &&
             !n.value.id &&
             !t.isPrivateName(n.key)
         ) {
+            // {a: function(){}} -> {a() {}}
             path.replaceWith(
                 t.objectMethod(
                     'method',

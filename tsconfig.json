@@ -14,5 +14,5 @@
         "lib": ["ESNext"]
     },
     "exclude": ["node_modules", "**/node_modules/*"],
-    "include": ["src", "bin", "dist/bin/cli.js"]
+    "include": ["src", "bin", "dist/bin/cli.js", "tests"]
 }

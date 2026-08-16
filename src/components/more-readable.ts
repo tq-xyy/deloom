@@ -8,14 +8,22 @@ export default defineComponent({
         exit(path) {
             const n = path.node
             if (t.isUnaryExpression(n.argument, { operator: 'void' })) {
-                path.insertBefore(t.expressionStatement(n.argument.argument))
+                // return void a -> a; return
+                // return void 0 -> return（无副作用参数不保留语句）
+                const arg = n.argument.argument
+                if (
+                    !t.isLiteral(arg) &&
+                    !t.isIdentifier(arg, { name: 'undefined' })
+                ) {
+                    path.insertBefore(t.expressionStatement(arg))
+                }
                 delete n.argument
             }
         },
     },
     ObjectProperty(path) {
+        // {a: a} -> {a}
         const n = path.node
-        // eg. { a: a } -> { a }
         if (
             t.isIdentifier(n.key) &&
             t.isIdentifier(n.value) &&
@@ -35,9 +43,9 @@ export default defineComponent({
             n.body.body.length === 1 &&
             t.isReturnStatement(n.body.body[0])
         ) {
-            n.body.body[0].argument || t.blockStatement([])
+            n.body = n.body.body[0].argument || t.blockStatement([])
         }
-        // special example
+        // () => (a, b) -> () => { return a, b }
         if (t.isSequenceExpression(n.body)) {
             n.body = t.blockStatement([t.returnStatement(n.body)])
         }

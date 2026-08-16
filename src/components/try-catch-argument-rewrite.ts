@@ -1,4 +1,3 @@
-import * as t from '@babel/types'
 import { defineComponent } from '../base'
 import { renameToDesired } from './shared'
 

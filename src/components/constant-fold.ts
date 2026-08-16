@@ -56,14 +56,17 @@ function tryConstify(path: NodePath<t.Expression>) {
             generate(t.returnStatement(path.node)).code
         )()
 
-        // not allow object & function
+        // NaN/Infinity 不折叠：valueToNode 会生成 0/0、1/0 等退化输出（如 1e999 -> 1/0）
+        if (typeof value === 'number' && !Number.isFinite(value)) {
+            return
+        }
 
+        // 仅折叠基础类型
         if (
             typeof value === 'number' ||
             typeof value === 'boolean' ||
             typeof value === 'string' ||
-            typeof value === 'undefined' ||
-            (typeof value === 'object' && value === null)
+            typeof value === 'undefined'
         ) {
             const newNode = t.valueToNode(value)
             // 防止无限循环：-1 折叠后仍是 UnaryExpression(-1)，
@@ -74,12 +77,12 @@ function tryConstify(path: NodePath<t.Expression>) {
             path.replaceWith(newNode)
         }
     } catch {
-        // skip constify
+        // 求值失败则跳过
     }
 }
 
 export default defineComponent({
-    //  0x1f << 2 | 1 -> 124
+    // 0x1f << 2 | 1 -> 125
     // 'a' + 'b' + 'c' -> 'abc'
     // !!0 -> false
     Binary(path) {

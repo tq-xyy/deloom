@@ -8,6 +8,7 @@ export default defineComponent({
         const hasTest = !!n.test
         const hasUpdate = !!n.update
         if (hasInit && !hasTest && !hasUpdate) {
+            // for (var i = 0; ;) -> var i = 0; for (;;)
             const node = t.isVariableDeclaration(n.init)
                 ? n.init
                 : t.expressionStatement(n.init!)
@@ -15,11 +16,12 @@ export default defineComponent({
             delete n.init
         }
         if (!hasInit && hasTest && !hasUpdate) {
-            const node = t.whileStatement(
-                n.test || t.booleanLiteral(true),
-                n.body
-            )
+            // for (; i < 10; ) -> while (i < 10)
+            const node = t.whileStatement(n.test!, n.body)
             path.replaceWith(node)
+        }
+        if (!hasInit && !hasTest && !hasUpdate) {
+            path.replaceWith(t.whileStatement(t.booleanLiteral(true), n.body))
         }
     },
 })

@@ -76,7 +76,7 @@ interface UncompressOptions {
 }
 
 export async function formatSource(
-    source: string | t.Program,
+    source: string | t.Program | t.File,
     options?: UncompressOptions
 ): Promise<string> {
     let ast: t.File
@@ -93,6 +93,8 @@ export async function formatSource(
         mark('parse-start')
         if (typeof source === 'string') {
             ast = parse(source)
+        } else if (t.isFile(source)) {
+            ast = source
         } else {
             ast = t.file(source)
         }

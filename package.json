@@ -1,6 +1,6 @@
 {
     "name": "deloom",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "A tool to uncompress and unbundle JavaScript bundles created by webpack, terser, and others.",
     "main": "dist/index.js",
     "types": "types/index.d.ts",
@@ -26,10 +26,12 @@
         "node": ">=16"
     },
     "scripts": {
-        "lint": "prettier -w src/**/*.ts **/*.json",
+        "lint": "prettier -w src/**/*.ts tests/**/*.ts ./*.json",
         "build": "npm run clean && esbuild src/**/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json --sourcemap",
         "clean": "rimraf dist",
         "typecheck": "tsc --noEmit",
+        "test": "tsx --test tests/**/*.test.ts",
+        "test:coverage": "tsx --test --experimental-test-coverage tests/**/*.test.ts",
         "prepublishOnly": "npm run build && npm run lint"
     },
     "dependencies": {

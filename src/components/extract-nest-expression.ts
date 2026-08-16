@@ -21,6 +21,9 @@ export default defineComponent({
                 t.expressionStatement(expr)
             )
             path.parentPath.replaceWithMultiple(exprs)
+            // replaceWithMultiple 后旧序列的子路径仍会被遍历，
+            // skip 阻止生成父链断裂的残留路径
+            path.skip()
             return
         }
 
@@ -89,14 +92,18 @@ export default defineComponent({
         if (n.operator === '=') {
             let current: NodePath<t.Node> = path
 
-            // 合法 AST 中赋值表达式恒有语句祖先
-            while (!current.parentPath!.isStatement()) {
-                current = current.parentPath!
+            // 合法 AST 中赋值表达式恒有语句祖先；
+            // 父链断裂的残留路径（替换后旧子路径）直接跳过
+            while (current.parentPath && !current.parentPath.isStatement()) {
+                current = current.parentPath
+            }
+            if (!current.parentPath) {
+                return
             }
 
             // if (x = f()) {...} -> x = f(); if (x) {...}
             if (
-                current.parentPath!.isIfStatement() &&
+                current.parentPath.isIfStatement() &&
                 current.parentKey === 'test'
             ) {
                 current.parentPath.insertBefore(t.expressionStatement(n))
@@ -104,7 +111,7 @@ export default defineComponent({
             }
             // return x = f() -> x = f(); return x
             if (
-                current.parentPath!.isReturnStatement({
+                current.parentPath.isReturnStatement({
                     argument: n,
                 }) &&
                 current.parentKey === 'argument'
@@ -113,7 +120,7 @@ export default defineComponent({
                 path.replaceWith(n.left)
             }
             // var y = (x = f()) -> x = f(); var y = x
-            if (current.parentPath!.isVariableDeclaration()) {
+            if (current.parentPath.isVariableDeclaration()) {
                 current.parentPath.insertBefore(t.expressionStatement(n))
                 path.replaceWith(n.left)
             }

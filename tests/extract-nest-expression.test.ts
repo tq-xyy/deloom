@@ -20,6 +20,18 @@ describe('extract-nest-expression: SequenceExpression', () => {
         assert.equal(transform(`a, b;`, extractNestExpression), `a;\nb;`)
     })
 
+    test('sequence with assignments is split and assignments still processed (regression: stale child paths)', () => {
+        // webpack 压缩产物常见形态：多条赋值连成逗号序列。
+        // 拆解后旧序列的子路径残留会导致 AssignmentExpression 父链断裂崩溃
+        assert.equal(
+            transform(
+                `a.x = f, b.y = g, module.exports = c;`,
+                extractNestExpression
+            ),
+            `a.x = f;\nb.y = g;\nmodule.exports = c;`
+        )
+    })
+
     test('sequence in return -> leading statements + return last', () => {
         assert.equal(
             transform(`function f() { return a, b }`, extractNestExpression),

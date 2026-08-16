@@ -22,6 +22,8 @@ interface UncompressOptions {
     usePrettier?: boolean
     pref?: boolean
     throwErrors?: boolean
+    /** be used to show in error log */
+    filename?: string
 }
 
 export function unbundle(options: UnbundleOptions): Promise<UnbundleResult>

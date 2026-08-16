@@ -73,6 +73,7 @@ interface UncompressOptions {
     usePrettier?: boolean
     pref?: boolean
     throwErrors?: boolean
+    filename?: string
 }
 
 export async function formatSource(
@@ -109,10 +110,22 @@ export async function formatSource(
             throw err
         }
         console.error(
-            'Some problems occurred during the uncompression process, ' +
-                'which may be source code errors. Please check the input. ' +
-                'Or you can set --throw-errors to have a look of the error.'
+            (options?.filename ? `${options.filename}: ` : '') +
+                'Some problems occurred during the uncompression process ' +
+                '(you can set --throw-errors to throw the error)' +
+                (err instanceof Error
+                    ? `\n  - ${err.name}: ${err.message}`
+                    : '')
         )
+        if (typeof source === 'object') {
+            source = generate(source).code
+        }
+        if (usePrettier) {
+            source = await prettier.format(source, {
+                ...(prettierConfig as any),
+                parser: 'babel',
+            })
+        }
         return (
             '// An error occurred during uncompressing. Roll back.\n' + source
         )
@@ -144,7 +157,7 @@ export async function formatSource(
             'Some problems occurred while formatting the code, which may be the error of the uncompressor.'
         )
         return (
-            `// There are some errors in these code so we do not format them.\n// ${err}` +
+            `// There are some syntax errors in these code so we do not format them.\n// ${err}\n` +
             generate(ast, {
                 minified: false,
                 sourceMaps: false,

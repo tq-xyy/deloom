@@ -1,4 +1,4 @@
-import { readFile, writeFile, unlink, readdir, rm, mkdir } from 'fs/promises'
+import { readFile, writeFile, unlink, rm, mkdir, glob } from 'fs/promises'
 import * as path from 'path'
 
 import { Command } from 'commander'
@@ -30,13 +30,18 @@ program
     .argument('[output]', 'output file path')
     .option('--no-prettier', 'disable prettier formatting')
     .option('--no-pref', 'disable prefix adding')
-    .option('--throw-errors', 'throw errors instead of catching')
+    .option('--no-throw-errors', 'throw errors instead of catching')
     .option('--no-timing', 'disable performance timing table')
     .action(
         async (
             input: string,
             output: string,
-            options: Record<string, boolean>
+            options: {
+                prettier: boolean
+                pref: boolean
+                throwErrors: boolean
+                timing: boolean
+            }
         ) => {
             output = output || guessOutput(input)
 
@@ -131,7 +136,11 @@ program
         async (
             inputDir: string,
             outputDir: string,
-            options: Record<string, any>
+            options: {
+                filter: string
+                log: boolean
+                clean: boolean
+            }
         ) => {
             outputDir = outputDir || guessOutput(inputDir)
 
@@ -143,25 +152,26 @@ program
                     await rm(outputDir, { recursive: true, force: true })
                 }
 
-                const allEntries = await readdir(inputDir)
-                const entries = allEntries
-                    .filter(p => p.endsWith(options.filter.replace('*', '')))
-                    .map(p => path.join(inputDir, p))
+                const sources: BundleSource[] = []
 
-                if (entries.length === 0) {
+                for await (const filename of glob(options.filter, {
+                    cwd: inputDir,
+                })) {
+                    const content = await readFile(
+                        path.join(inputDir, filename),
+                        'utf-8'
+                    )
+                    sources.push({
+                        filename,
+                        content,
+                    })
+                }
+
+                if (sources.length === 0) {
                     console.log(
                         `No files matching "${options.filter}" found in ${inputDir}`
                     )
                     return
-                }
-
-                // 文件无关：读入内容交给 unbundle，落盘由 CLI 完成
-                const sources: BundleSource[] = []
-                for (const entry of entries) {
-                    sources.push({
-                        filename: entry,
-                        content: await readFile(entry, 'utf-8'),
-                    })
                 }
 
                 const result = await unbundle({
@@ -172,6 +182,7 @@ program
                 for (const [relpath, content] of Object.entries(
                     result.files
                 )) {
+                    if (content.includes('problems')) console.log(relpath)
                     const filepath = path.join(outputDir, relpath)
                     await mkdir(path.dirname(filepath), { recursive: true })
                     await writeFile(filepath, content, 'utf-8')

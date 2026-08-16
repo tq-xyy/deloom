@@ -90,7 +90,7 @@ describe('formatSource full pipeline', () => {
         const out = await formatSource(file)
         assert.match(
             out,
-            /There are some errors in these code so we do not format/
+            /There are some syntax errors in these code so we do not format/
         )
     })
 

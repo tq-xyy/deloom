@@ -156,7 +156,9 @@ export class Extractor {
  */
 `
 
-        const source = await formatSource(module.ast)
+        const source = await formatSource(module.ast, {
+            filename: this.rewrite(module.id),
+        })
         return {
             filename: this.rewrite(module.id),
             content: banner + source,

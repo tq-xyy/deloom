@@ -26,7 +26,7 @@
         "node": ">=16"
     },
     "scripts": {
-        "lint": "prettier -w src/**/*.ts tests/**/*.ts ./*.json",
+        "lint": "prettier -w src/**/*.ts tests/**/*.ts types/**/*.ts ./*.json",
         "build": "npm run clean && esbuild src/**/*.ts --platform=node --format=cjs --outdir=dist --tsconfig=tsconfig.json --sourcemap",
         "clean": "rimraf dist",
         "typecheck": "tsc --noEmit",

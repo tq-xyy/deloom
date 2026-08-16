@@ -56,20 +56,25 @@ export default defineComponent({
         ) {
             return
         }
+
         const key = n.key.name
         if (key.length < 4 || !isReadableName(key)) {
             return
         }
+
         renameToDesired(path.scope, n.value.name, key)
+
         if (n.key.name === n.value.name) {
             n.shorthand = true
         }
     },
+
     VariableDeclarator(path) {
         // var o = this -> var self = this
         // var x = new XMLHttpRequest() -> var xhr = ...
         const n = path.node
         if (!t.isIdentifier(n.id) || !isMinifiedName(n.id.name)) return
+
         const idName = n.id.name
         const binding = path.scope.getBinding(idName)
         if (!binding || !binding.constant) return
@@ -86,6 +91,7 @@ export default defineComponent({
         if (!desired) return
         renameToDesired(path.scope, idName, desired)
     },
+
     AssignmentExpression(path) {
         // self.playNoteAtNumber = n -> 函数 n 更名为 playNoteAtNumber
         const n = path.node
@@ -110,6 +116,7 @@ export default defineComponent({
         if (!binding || !isFunctionBinding(binding)) return
         renameToDesired(path.scope, n.right.name, propName)
     },
+
     'FunctionDeclaration|FunctionExpression|ArrowFunctionExpression'(path) {
         // 参数在函数体内被调用（含 call/apply）-> callback（兜底命名）
         const fnNode = path.node as t.Function
@@ -122,7 +129,8 @@ export default defineComponent({
         ) {
             fnBinding = path.scope.getBinding(fnNode.id.name)
         } else if (
-            path.parentPath!.isVariableDeclarator() &&
+            path.parentPath &&
+            path.parentPath.isVariableDeclarator() &&
             t.isIdentifier(path.parentPath.node.id)
         ) {
             fnBinding = path.parentPath.scope.getBinding(
@@ -141,11 +149,12 @@ export default defineComponent({
                 }
             }
         }
+
         for (let i = 0; i < fnNode.params.length; i++) {
             const param = fnNode.params[i]
             if (!t.isIdentifier(param) || !isMinifiedName(param.name)) continue
-            // 函数形参的绑定必然存在（babel scope 注册）
-            const binding = path.scope.getBinding(param.name)!
+            const binding = path.scope.getBinding(param.name)
+            if (!binding) continue
             // 调用点实参可读 -> 交给 CallExpression 锚点传播（success/fail 这类更具体语义）
             if (
                 callSites.some(cs => {
@@ -158,7 +167,8 @@ export default defineComponent({
             // 作为可读键对象属性值 -> 交给 ObjectProperty 锚点传播
             if (
                 binding.referencePaths.some(ref => {
-                    const parent = ref.parentPath!
+                    const parent = ref.parentPath
+                    if (!parent) return false
                     if (
                         !parent.isObjectProperty() ||
                         parent.node.value !== ref.node ||
@@ -174,12 +184,15 @@ export default defineComponent({
             ) {
                 continue
             }
+
             const called = binding.referencePaths.some(ref => {
-                const parent = ref.parentPath!
+                const parent = ref.parentPath
+                if (!parent) return false
                 if (parent.isCallExpression()) {
                     return parent.node.callee === ref.node
                 }
                 // e.call(...) / e.apply(...)：需确认 member 是调用的 callee
+                const grand = parent.parentPath
                 return (
                     parent.isMemberExpression() &&
                     !parent.node.computed &&
@@ -187,8 +200,9 @@ export default defineComponent({
                     t.isIdentifier(parent.node.property) &&
                     (parent.node.property.name === 'call' ||
                         parent.node.property.name === 'apply') &&
-                    parent.parentPath!.isCallExpression() &&
-                    parent.parentPath.node.callee === parent.node
+                    grand !== null &&
+                    grand.isCallExpression() &&
+                    grand.node.callee === parent.node
                 )
             })
             if (called) {
@@ -196,6 +210,7 @@ export default defineComponent({
             }
         }
     },
+
     CallExpression(path) {
         // foo(userList) -> 形参（压缩名）更名为 userList
         const n = path.node
@@ -218,6 +233,7 @@ export default defineComponent({
             fnPath = binding.path.get('init') as NodePath<t.Function>
         }
         if (!fnPath) return
+
         // 形参注册在函数作用域，而非调用点作用域
         for (
             let i = 0;

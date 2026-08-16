@@ -132,7 +132,7 @@ describe('browserify transform', () => {
     })
 
     test('destructured param -> tip wrong_module_fn', async () => {
-        const { ast } = await transformModule(`exports.x = 1;`, {}, '1')
+        await transformModule(`exports.x = 1;`, {}, '1')
         // 形参解构在 browserify 中同样记录 wrong_module_fn
         const code = `var x = ({ 1: [function ({ a }, module, exports) { exports.x = 1; }] });`
         const ast2 = parse(code)
@@ -147,12 +147,13 @@ describe('browserify transform', () => {
                 }
             },
         })
+        assert.ok(propPath, 'module property not found')
         const ctx: TransformContext = {
             tips: [],
             helpers: new Set(),
             rewrite: id => id + '.cjs',
         }
-        browserifyStrategy.transform(ctx, '1' as never, propPath!)
+        browserifyStrategy.transform(ctx, '1' as never, propPath)
         assert.ok(ctx.tips.some(tip => tip.type === 'wrong_module_fn'))
     })
 })

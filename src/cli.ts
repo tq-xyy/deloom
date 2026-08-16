@@ -49,7 +49,9 @@ program
                 // 删除可能存在的输出文件（异步，忽略错误）
                 try {
                     await unlink(output)
-                } catch {}
+                } catch {
+                    /* empty */
+                }
 
                 // 异步读取源文件
                 const source = await readFile(input, 'utf-8')
@@ -90,7 +92,9 @@ program
                             if (entries.length) {
                                 timing.push([label, entries[0].duration])
                             }
-                        } catch {}
+                        } catch {
+                            /* empty */
+                        }
                     }
                     const total = timing.reduce((p, a) => p + a[1], 0)
                     if (timing.length) {

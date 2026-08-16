@@ -11,13 +11,13 @@ export default defineComponent({
             // for (var i = 0; ;) -> var i = 0; for (;;)
             const node = t.isVariableDeclaration(n.init)
                 ? n.init
-                : t.expressionStatement(n.init!)
+                : t.expressionStatement(n.init as t.Expression)
             path.insertBefore(node)
             delete n.init
         }
         if (!hasInit && hasTest && !hasUpdate) {
             // for (; i < 10; ) -> while (i < 10)
-            const node = t.whileStatement(n.test!, n.body)
+            const node = t.whileStatement(n.test as t.Expression, n.body)
             path.replaceWith(node)
         }
         if (!hasInit && !hasTest && !hasUpdate) {

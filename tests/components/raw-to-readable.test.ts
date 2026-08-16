@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import * as t from '@babel/types'
 import rawToReadable from '../../src/components/raw-to-readable'
-import { transform, transformNode, visitAst } from '../helpers'
+import { transform, transformNode } from '../helpers'
 
 describe('raw-to-readable', () => {
     test('plain string: raw reset to standard JSON form', () => {

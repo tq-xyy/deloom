@@ -1,8 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import * as t from '@babel/types'
 import swapEquels from '../../src/components/swap-equels'
-import { transform, visitAst } from '../helpers'
+import { transform } from '../helpers'
 
 describe('swap-equels', () => {
     test('undefined on left -> swapped', () => {

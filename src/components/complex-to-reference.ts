@@ -6,7 +6,9 @@ export function checkObjectLevelMoreThan(obj: t.Node, level: number) {
     const queue: { node: t.Node; depth: number }[] = [{ node: obj, depth: 0 }]
 
     while (queue.length > 0) {
-        const { node, depth } = queue.shift()!
+        const item = queue.shift()
+        if (!item) break
+        const { node, depth } = item
 
         if (depth > level) return true
 
@@ -33,7 +35,7 @@ export default defineComponent({
             t.isObjectExpression(n.object) &&
             n.object.properties.length > 10
         ) {
-            let id = path.scope.generateUidIdentifier('staticObj')
+            const id = path.scope.generateUidIdentifier('staticObj')
             path.scope.push({ id, init: n.object })
             n.object = id
         }
@@ -49,7 +51,7 @@ export default defineComponent({
                 !t.isFunction(arg) &&
                 checkObjectLevelMoreThan(arg, 9)
             ) {
-                let id = path.scope.generateUidIdentifier('callArgs')
+                const id = path.scope.generateUidIdentifier('callArgs')
                 path.node.arguments[index] = id
                 path.parentPath.insertBefore(
                     t.variableDeclaration('const', [

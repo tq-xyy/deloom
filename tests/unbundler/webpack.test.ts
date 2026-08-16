@@ -240,7 +240,7 @@ describe('webpack transform: helpers', () => {
     })
 
     test('helper d with spread/irregular props is skipped', async () => {
-        const { ast, helpers } = await transformModule(
+        const { helpers } = await transformModule(
             withRequireCall(`require.d(exports, { ...extra });`)
         )
         assert.equal(helpers.has('d'), false)

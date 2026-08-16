@@ -116,14 +116,22 @@ describe('constant-fold', () => {
 
     test('fold skipped when new Function throws (catch branch)', () => {
         const orig = globalThis.Function
-        ;(globalThis as any).Function = function () {
-            throw new Error('boom')
-        }
+        Object.defineProperty(globalThis, 'Function', {
+            value: function () {
+                throw new Error('boom')
+            },
+            configurable: true,
+            writable: true,
+        })
         try {
             const out = transform(`var a = 1 + 2;`, constantFold)
             assert.equal(out, `var a = 1 + 2;`)
         } finally {
-            ;(globalThis as any).Function = orig
+            Object.defineProperty(globalThis, 'Function', {
+                value: orig,
+                configurable: true,
+                writable: true,
+            })
         }
         // 恢复后正常折叠
         assert.equal(transform(`var a = 1 + 2;`, constantFold), `var a = 3;`)

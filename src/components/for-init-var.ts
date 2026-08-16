@@ -55,7 +55,7 @@ export default defineComponent({
         const n = path.node
         // for (var k in a, b) -> a; for (var k in b)
         if (t.isSequenceExpression(n.right)) {
-            const lastone = n.right.expressions.pop()!
+            const lastone = n.right.expressions.pop() as t.Expression
             path.insertBefore(t.expressionStatement(n.right))
             n.right = lastone
         }

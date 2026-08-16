@@ -32,7 +32,7 @@ export default defineComponent({
             t.isReturnStatement(path.parent) ||
             t.isThrowStatement(path.parent)
         ) {
-            const lastone = n.expressions.pop()!
+            const lastone = n.expressions.pop() as t.Expression
             for (const expr of n.expressions) {
                 path.parentPath.insertBefore(t.expressionStatement(expr))
             }
@@ -42,7 +42,7 @@ export default defineComponent({
 
         // if (a, b) {...} -> a; if (b) {...}
         if (t.isIfStatement(path.parent) && path.parentKey === 'test') {
-            const lastone = n.expressions.pop()!
+            const lastone = n.expressions.pop() as t.Expression
             for (const expr of n.expressions) {
                 path.parentPath.insertBefore(t.expressionStatement(expr))
             }
@@ -51,16 +51,16 @@ export default defineComponent({
         }
 
         // var x = (a, b) -> a; var x = b
+        const grand = path.parentPath.parentPath
         if (
             t.isVariableDeclarator(path.parent) &&
             path.parentKey === 'init' &&
-            path.parentPath.parentPath!.isVariableDeclaration()
+            grand !== null &&
+            grand.isVariableDeclaration()
         ) {
-            const lastone = n.expressions.pop()!
+            const lastone = n.expressions.pop() as t.Expression
             for (const expr of n.expressions) {
-                path.parentPath.parentPath.insertBefore(
-                    t.expressionStatement(expr)
-                )
+                grand.insertBefore(t.expressionStatement(expr))
             }
             path.replaceWith(lastone)
             return
@@ -71,10 +71,10 @@ export default defineComponent({
             t.isCallExpression(path.parent) &&
             path.parentKey === 'arguments'
         ) {
-            const statementBlock = path.parentPath.parentPath!
+            const statementBlock = path.parentPath.parentPath
 
-            if (statementBlock.isStatement()) {
-                const lastone = n.expressions.pop()!
+            if (statementBlock && statementBlock.isStatement()) {
+                const lastone = n.expressions.pop() as t.Expression
                 for (const expr of n.expressions) {
                     statementBlock.insertBefore(t.expressionStatement(expr))
                 }
@@ -127,10 +127,11 @@ export default defineComponent({
         }
         if (['+=', '-='].includes(n.operator)) {
             // a += b += c -> b += c; a += b
-            const root = path.findParent(path => path.isStatement())!
+            const root = path.findParent(path => path.isStatement())
+            if (!root) return
 
-            let chains: t.AssignmentExpression[] = [],
-                curr = n
+            const chains: t.AssignmentExpression[] = []
+            let curr = n
             while (
                 t.isAssignmentExpression(curr) &&
                 t.isAssignmentExpression(curr.right)
@@ -138,7 +139,7 @@ export default defineComponent({
                 if (!t.isExpression(curr.right.left)) {
                     return
                 }
-                let temp = curr.right
+                const temp = curr.right
                 curr.right = curr.right.left
                 curr = temp
                 chains.unshift(curr)

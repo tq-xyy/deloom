@@ -178,7 +178,7 @@ export class Extractor {
     }
 
     formatTips() {
-        let strings: string[] = []
+        const strings: string[] = []
         for (const tip of this.tips) {
             const { module, type, src } = tip
             strings.push(`${type} from ${this.rewrite(module)}: ${src}`)

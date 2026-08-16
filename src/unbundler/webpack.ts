@@ -74,7 +74,7 @@ function transformWebpackModule(
         }
         path.node.name = 'require'
         switch (path.parent.type) {
-            case 'CallExpression':
+            case 'CallExpression': {
                 const args = path.parent.arguments
                 if (
                     args.length == 1 &&
@@ -115,7 +115,8 @@ function transformWebpackModule(
                     }
                 }
                 break
-            case 'MemberExpression':
+            }
+            case 'MemberExpression': {
                 if (!(
                     !path.parent.computed &&
                     path.parent.property.type === 'Identifier' &&
@@ -263,6 +264,7 @@ function transformWebpackModule(
                     handleErrors('runtime_helper')
                 }
                 break
+            }
 
             default:
                 handleErrors('require_ref')

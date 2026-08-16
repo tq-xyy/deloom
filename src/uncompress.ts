@@ -23,7 +23,7 @@ import statementToBlock from './components/statement-to-block'
 import swapEquels from './components/swap-equels'
 import tryCatchArgumentRewrite from './components/try-catch-argument-rewrite'
 
-const prettierConfig: prettier.Config = {
+const prettierConfig: prettier.Options = {
     arrowParens: 'avoid',
     bracketSpacing: true,
     endOfLine: 'crlf',
@@ -122,7 +122,7 @@ export async function formatSource(
         }
         if (usePrettier) {
             source = await prettier.format(source, {
-                ...(prettierConfig as any),
+                ...prettierConfig,
                 parser: 'babel',
             })
         }
@@ -139,7 +139,7 @@ export async function formatSource(
         }).code
         if (usePrettier) {
             result = await prettier.format(result, {
-                ...(prettierConfig as any),
+                ...prettierConfig,
                 parser: 'babel',
             })
         }

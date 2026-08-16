@@ -33,7 +33,7 @@ export function isReadableName(name: string): boolean {
 
 /**
  * 将 oldName 重命名为 desiredName；名字被占用时追加数字后缀（name1、name2...）
- *返回实际使用的名字（oldName 已是 desiredName 时原样返回）
+ * 返回实际使用的名字（oldName 已是 desiredName 时原样返回）
  */
 export function renameToDesired(
     scope: Scope,

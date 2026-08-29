@@ -31,11 +31,27 @@ export default defineComponent({
                     const reserve: t.VariableDeclarator[] = []
                     const declarations: t.VariableDeclarator[] = []
                     for (const decl of n.init.declarations) {
-                        // 仅保留与循环变量同名的声明
-                        if (!t.isIdentifier(decl.id, { name: variable })) {
-                            declarations.push(decl)
-                        } else {
+                        const isLoopVar = t.isIdentifier(decl.id, {
+                            name: variable,
+                        })
+                        // 与外层已有声明冲突时提出为 let 会重复声明，保留在 for 头
+                        const conflicted =
+                            !isLoopVar &&
+                            t.isIdentifier(decl.id) &&
+                            (() => {
+                                const binding = path.scope.getBinding(
+                                    decl.id.name
+                                )
+                                return (
+                                    !!binding &&
+                                    binding.path.node !== decl
+                                )
+                            })()
+                        if (isLoopVar || conflicted) {
+                            // 仅保留与循环变量同名（及冲突）的声明
                             reserve.push(decl)
+                        } else {
+                            declarations.push(decl)
                         }
                     }
 

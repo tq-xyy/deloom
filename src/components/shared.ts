@@ -8,8 +8,10 @@ export function identifierIsVaild(value: string) {
         'break,extends,this,catch,for,case,finally,throw,try,class,function,typeof,const,if,var,continue,' +
         'import,void,debugger,in,while,default,instanceof,with,delete,new,yield,do,return,else,super,export,switch,' +
         'enum,implements,package,public,interface,private,static,protected,let,' +
-        // 字面量保留字不能作为绑定名（改名成它们会产出非法代码）
+        // 字面量保留字不能作为绑定名
         'false,null,true,' +
+        // 全局值标识符不能作为绑定名
+        'undefined,NaN,Infinity,' +
         // 严格模式保留名同理
         'arguments,eval'
     ).split(',')

@@ -154,7 +154,8 @@ export async function formatSource(
             throw err
         }
         console.error(
-            'Some problems occurred while formatting the code, which may be the error of the uncompressor.'
+            (options?.filename ? `${options.filename}: ` : '') +
+                'Some problems occurred while formatting the code, which may be the error of the uncompressor.'
         )
         return (
             `// There are some syntax errors in these code so we do not format them.\n// ${err}\n` +

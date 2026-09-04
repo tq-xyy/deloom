@@ -1,7 +1,12 @@
 import type { Binding, NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import { defineComponent } from '../base'
-import { isMinifiedName, isReadableName, renameToDesired } from './shared'
+import {
+    identifierIsVaild,
+    isMinifiedName,
+    isReadableName,
+    renameToDesired,
+} from './shared'
 
 // 类型 -> 角色名映射（特例优先），其余走 camelCase 兜底
 // 用无原型对象：避免 'constructor'/'toString' 等键名命中 Object.prototype 返回函数
@@ -20,13 +25,16 @@ Object.assign(TYPE_ROLE_MAP, {
 })
 
 export function typeToRoleName(calleeName: string): string | null {
-    if (!Object.hasOwn(TYPE_ROLE_MAP, calleeName)) {
-        if (calleeName.length >= 6) {
-            return calleeName[0].toLowerCase() + calleeName.slice(1)
-        }
+    let name: string | null
+    if (Object.hasOwn(TYPE_ROLE_MAP, calleeName)) {
+        name = TYPE_ROLE_MAP[calleeName]
+    } else if (calleeName.length >= 6) {
+        // camelCase 兜底可能产出保留字（如 Function -> function），不能作为绑定名
+        name = calleeName[0].toLowerCase() + calleeName.slice(1)
+    } else {
         return null
     }
-    return TYPE_ROLE_MAP[calleeName]
+    return identifierIsVaild(name) ? name : null
 }
 
 // 绑定是否指向一个函数
@@ -88,7 +96,7 @@ export default defineComponent({
             desired = typeToRoleName(n.init.callee.name)
         }
         // 不做 var a = data 别名传播：改名会遮蔽外层源名，使 init 变自引用
-        if (!desired) return
+        if (!desired || !identifierIsVaild(desired)) return
         renameToDesired(path.scope, idName, desired)
     },
 

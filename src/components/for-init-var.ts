@@ -42,10 +42,7 @@ export default defineComponent({
                                 const binding = path.scope.getBinding(
                                     decl.id.name
                                 )
-                                return (
-                                    !!binding &&
-                                    binding.path.node !== decl
-                                )
+                                return !!binding && binding.path.node !== decl
                             })()
                         if (isLoopVar || conflicted) {
                             // 仅保留与循环变量同名（及冲突）的声明

@@ -3,6 +3,7 @@ import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import prettierConfig from 'eslint-config-prettier'
 import { readFileSync } from 'fs'
+import * as path from 'path'
 
 const ignores = readFileSync(
     path.join(import.meta.dirname, '.gitignore'),
